@@ -169,26 +169,33 @@ fn english_mode_no_conversion() {
 // ── char_sub after initial consonant ──────────────────────────────────────
 
 #[test]
-fn nw_gives_nu_horn() {
-    // 'n' (initial consonant) + 'w' (char_sub vowel) → "nư"
-    let result = type_sequence(&mut telex(), "nw ");
+fn n_bracket_gives_nu_horn() {
+    // 'n' (initial consonant) + ']' (char_sub → 'ư') → "nư"
+    let result = type_sequence(&mut telex(), "n] ");
     assert_eq!(result, "nư ");
 }
 
 #[test]
-fn nws_gives_nu_sac() {
-    // 'n' + 'w' + 's' (tone sắc) → "nứ"
-    let result = type_sequence(&mut telex(), "nws ");
+fn n_bracket_s_gives_nu_sac() {
+    // 'n' + ']' + 's' (tone sắc) → "nứ"
+    let result = type_sequence(&mut telex(), "n]s ");
     assert_eq!(result, "nứ ");
+}
+
+#[test]
+fn w_is_literal_in_telex() {
+    // 'w' is no longer char_sub'd — should commit literally
+    let result = type_sequence(&mut telex(), "watch ");
+    assert_eq!(result, "watch ");
 }
 
 // ── Double-press escape commits correctly ──────────────────────────────────
 
 #[test]
-fn ww_space_gives_w_not_ww() {
-    // 'w'→'ư', 'w' (escape)→'w', space → should commit "w " not "ww "
-    let result = type_sequence(&mut telex(), "ww ");
-    assert_eq!(result, "w ");
+fn bracket_bracket_space_gives_bracket() {
+    // ']'→'ư', ']' again (escape)→']', space → commit "]" not "]]"
+    let result = type_sequence(&mut telex(), "]] ");
+    assert_eq!(result, "] ");
 }
 
 // ── Backspace ──────────────────────────────────────────────────────────────
@@ -209,10 +216,8 @@ fn backspace_reverts_double_char() {
 
 #[test]
 fn backspace_then_retype() {
-    // wa→ưa, Backspace→ư, s→ứ, space commits "ứ"
-    let result = type_with_bs(&mut telex(), "was\x08\x08s ");
-    // was→ưas (tone 's' on ưa = ứa? no, 's' after literal 'a' applies sắc to 'a' in ưas)
-    // Actually: w→ư, a→ưa, s(tone on ưa)→ứa, BS→ứ (pop 's' replay), BS→ư (pop 'a'), s(tone)→ứ
+    // ']'→'ư', 'a'→'ưa', 's'(tone sắc)→'ứa', BS→'ưa', BS→'ư', 's'→'ứ', space commits "ứ"
+    let result = type_with_bs(&mut telex(), "]as\x08\x08s ");
     assert_eq!(result, "ứ ");
 }
 

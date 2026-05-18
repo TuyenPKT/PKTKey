@@ -60,7 +60,6 @@ fn default_true() -> bool {
 impl MappingConfig {
     pub fn telex() -> Self {
         let mut char_sub = HashMap::new();
-        char_sub.insert("w".into(), "ư".into());
         char_sub.insert("[".into(), "ơ".into());
         char_sub.insert("]".into(), "ư".into());
 
@@ -179,9 +178,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn telex_has_w_sub() {
+    fn telex_has_bracket_sub() {
         let cfg = MappingConfig::telex();
-        assert_eq!(cfg.char_sub.get("w").map(String::as_str), Some("ư"));
+        assert_eq!(cfg.char_sub.get("[").map(String::as_str), Some("ơ"));
+        assert_eq!(cfg.char_sub.get("]").map(String::as_str), Some("ư"));
+        assert!(!cfg.char_sub.contains_key("w"), "w should be literal in this layout");
     }
 
     #[test]

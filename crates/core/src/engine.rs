@@ -287,10 +287,19 @@ mod tests {
     }
 
     #[test]
-    fn char_sub_w_gives_ư() {
+    fn w_is_literal() {
+        // 'w' is no longer in char_sub — it should append literally
         let mut e = telex_engine();
         let out = e.process_key('w');
-        assert_eq!(out, EngineOutput::Replace { delete_back: 0, text: "ư".into() });
+        assert_eq!(out, EngineOutput::Replace { delete_back: 0, text: "w".into() });
+    }
+
+    #[test]
+    fn bracket_sub_gives_o_horn() {
+        // '[' → 'ơ' is still a char_sub
+        let mut e = telex_engine();
+        let out = e.process_key('[');
+        assert_eq!(out, EngineOutput::Replace { delete_back: 0, text: "ơ".into() });
     }
 
     #[test]
