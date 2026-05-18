@@ -276,6 +276,24 @@
 
       // Let browser handle control keys
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      // Backspace: let engine pop the last raw keystroke and recompute
+      if (e.key === 'Backspace') {
+        const result = engine.processBackspace();
+        if (result === null) return;
+        if (result.type === 'Passthrough') {
+          // No buffer → let browser delete the previous committed char
+          return;
+        }
+        e.preventDefault();
+        const { delete_back, text } = result;
+        replaceCandidate(ta, candidate, text);
+        candidate = text;
+        log(`Backspace → "${text}"`, 'replace');
+        setCandidateDisplay(text || '—');
+        return;
+      }
+
       if (e.key.length !== 1) return; // non-printable (arrow keys etc.)
 
       e.preventDefault();

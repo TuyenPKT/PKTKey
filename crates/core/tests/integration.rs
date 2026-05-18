@@ -37,6 +37,39 @@ fn telex() -> Engine {
     Engine::new(MappingConfig::from_preset(Preset::Telex))
 }
 
+/// Like type_sequence but '\x08' (BS) calls process_backspace.
+fn type_with_bs(engine: &mut Engine, input: &str) -> String {
+    let mut committed = String::new();
+    let mut candidate = String::new();
+
+    for ch in input.chars() {
+        let result = if ch == '\x08' {
+            engine.process_backspace()
+        } else {
+            engine.process_key(ch)
+        };
+
+        match result {
+            EngineOutput::Replace { text, delete_back } => {
+                let cand_len = candidate.chars().count();
+                assert_eq!(delete_back, cand_len);
+                candidate = text;
+            }
+            EngineOutput::Passthrough => {
+                committed.push_str(&candidate);
+                candidate.clear();
+                if ch != '\x08' { committed.push(ch); }
+            }
+            EngineOutput::Commit { text } => {
+                committed.push_str(&text);
+                candidate.clear();
+            }
+        }
+    }
+    committed.push_str(&candidate);
+    committed
+}
+
 // ── False-positive tests (English words must NOT be converted) ─────────────
 
 #[test]
@@ -131,6 +164,31 @@ fn english_mode_no_conversion() {
     e.toggle_mode(); // switch to English
     let result = type_sequence(&mut e, "watch ");
     assert_eq!(result, "watch ");
+}
+
+// ── Backspace ──────────────────────────────────────────────────────────────
+
+#[test]
+fn backspace_reverts_w_to_nothing() {
+    // w→ư, Backspace → empty (ư deleted, buffer cleared)
+    let result = type_with_bs(&mut telex(), "w\x08 ");
+    assert_eq!(result, " ");
+}
+
+#[test]
+fn backspace_reverts_double_char() {
+    // aa→â, Backspace → a, then space commits "a"
+    let result = type_with_bs(&mut telex(), "aa\x08 ");
+    assert_eq!(result, "a ");
+}
+
+#[test]
+fn backspace_then_retype() {
+    // wa→ưa, Backspace→ư, s→ứ, space commits "ứ"
+    let result = type_with_bs(&mut telex(), "was\x08\x08s ");
+    // was→ưas (tone 's' on ưa = ứa? no, 's' after literal 'a' applies sắc to 'a' in ưas)
+    // Actually: w→ư, a→ưa, s(tone on ưa)→ứa, BS→ứ (pop 's' replay), BS→ư (pop 'a'), s(tone)→ứ
+    assert_eq!(result, "ứ ");
 }
 
 // ── Multi-syllable phrase ──────────────────────────────────────────────────

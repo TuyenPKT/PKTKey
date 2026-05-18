@@ -46,6 +46,13 @@ impl WasmEngine {
         serde_wasm_bindgen::to_value(&output).unwrap_or(JsValue::NULL)
     }
 
+    /// Handle Backspace. Returns the same object shape as processKey.
+    #[wasm_bindgen(js_name = processBackspace)]
+    pub fn process_backspace(&mut self) -> JsValue {
+        let output = self.inner.process_backspace();
+        serde_wasm_bindgen::to_value(&output).unwrap_or(JsValue::NULL)
+    }
+
     /// Toggle between Vietnamese and English input mode.
     #[wasm_bindgen(js_name = toggleMode)]
     pub fn toggle_mode(&mut self) {

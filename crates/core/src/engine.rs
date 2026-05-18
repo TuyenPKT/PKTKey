@@ -93,6 +93,35 @@ impl Engine {
         self.append_literal(key)
     }
 
+    /// Handle Backspace.
+    /// - Buffer empty → Passthrough (platform deletes previous committed char)
+    /// - Buffer non-empty → pop the last raw keystroke and recompute candidate
+    pub fn process_backspace(&mut self) -> EngineOutput {
+        if self.mode == InputMode::English || self.buffer.is_empty() {
+            return EngineOutput::Passthrough;
+        }
+
+        let prev_candidate_len = self.buffer.candidate.chars().count();
+
+        // Collect all raw keys except the last one
+        let raw_chars: Vec<char> = self.buffer.raw.chars().collect();
+        let replay: Vec<char> = raw_chars[..raw_chars.len() - 1].to_vec();
+
+        // Reset buffer and replay remaining keys to rebuild candidate
+        self.buffer.clear();
+        let mut last_text = String::new();
+        for ch in replay {
+            if let EngineOutput::Replace { text, .. } = self.process_key(ch) {
+                last_text = text;
+            }
+        }
+
+        EngineOutput::Replace {
+            delete_back: prev_candidate_len,
+            text: last_text,
+        }
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
 
     fn commit_and_passthrough(&mut self, delimiter: char) -> EngineOutput {
@@ -269,5 +298,33 @@ mod tests {
     fn tone_on_empty_buffer_passthrough() {
         let mut e = telex_engine();
         assert_eq!(e.process_key('s'), EngineOutput::Passthrough);
+    }
+
+    #[test]
+    fn backspace_on_empty_is_passthrough() {
+        let mut e = telex_engine();
+        assert_eq!(e.process_backspace(), EngineOutput::Passthrough);
+    }
+
+    #[test]
+    fn backspace_pops_single_char() {
+        // "w" → "ư"; Backspace → delete "ư", nothing left
+        let mut e = telex_engine();
+        e.process_key('w');
+        let out = e.process_backspace();
+        assert_eq!(out, EngineOutput::Replace { delete_back: 1, text: "".into() });
+    }
+
+    #[test]
+    fn backspace_pops_to_previous_candidate() {
+        // "a" → "a"; "a" → "â"; Backspace → back to "a"
+        let mut e = telex_engine();
+        e.process_key('a');
+        e.process_key('a'); // now "â"
+        let out = e.process_backspace();
+        match out {
+            EngineOutput::Replace { text, .. } => assert_eq!(text, "a"),
+            other => panic!("expected Replace, got {:?}", other),
+        }
     }
 }
