@@ -5,16 +5,18 @@ use crate::{
     validator::is_valid_syllable,
 };
 
-/// What the engine tells the caller to do after processing a keystroke
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// What the engine tells the caller to do after processing a keystroke.
+/// Serialized with `type` tag so JS can do `if (output.type === "Replace") ...`
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "type")]
 pub enum EngineOutput {
     /// Replace the last `delete_back` characters with `text`.
     /// delete_back=0 means pure insertion.
     Replace { delete_back: usize, text: String },
     /// Pass the key through unchanged (engine is disabled or key is unhandled)
     Passthrough,
-    /// Commit the current syllable and start fresh (e.g. after space)
-    Commit(String),
+    /// Commit the current syllable (reserved for future platform use)
+    Commit { text: String },
 }
 
 /// Whether Vietnamese input is active

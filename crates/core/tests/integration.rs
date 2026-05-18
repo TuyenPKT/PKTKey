@@ -22,8 +22,8 @@ fn type_sequence(engine: &mut Engine, input: &str) -> String {
                 candidate.clear();
                 committed.push(ch);
             }
-            EngineOutput::Commit(s) => {
-                committed.push_str(&s);
+            EngineOutput::Commit { text } => {
+                committed.push_str(&text);
                 candidate.clear();
             }
         }
