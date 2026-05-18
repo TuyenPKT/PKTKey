@@ -246,7 +246,38 @@
       engine = new WasmEngine('telex');
       renderRef(TELEX_REF);
 
-      document.getElementById('input-area').addEventListener('keydown', onKeyDown);
+      const ta = document.getElementById('input-area');
+
+      // keydown: mode toggle + Backspace (non-printable keys)
+      ta.addEventListener('keydown', e => {
+        if (e.code === 'Space' && e.ctrlKey) {
+          e.preventDefault();
+          engine.toggleMode();
+          candidate = '';
+          syncMode();
+          setCandidateDisplay('—');
+          return;
+        }
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+        if (e.key === 'Backspace') {
+          const result = engine.processBackspace();
+          if (!result || result.type === 'Passthrough') return; // let browser handle
+          e.preventDefault();
+          replaceCandidate(ta, candidate, result.text);
+          candidate = result.text;
+          log(`Backspace → "${result.text}"`, 'replace');
+          setCandidateDisplay(result.text || '—');
+        }
+      });
+
+      // beforeinput: intercept character insertion BEFORE the browser inserts it.
+      // More reliable than keydown+preventDefault on macOS (avoids OS-IME race).
+      ta.addEventListener('beforeinput', e => {
+        if (e.inputType !== 'insertText' || !e.data) return;
+        e.preventDefault();
+        handleKey(ta, e.data);
+      });
 
       document.querySelectorAll('.preset-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -263,50 +294,11 @@
       });
     }
 
-    function onKeyDown(e) {
-      // Ctrl+Space: toggle mode
-      if (e.code === 'Space' && e.ctrlKey) {
-        e.preventDefault();
-        engine.toggleMode();
-        candidate = '';
-        syncMode();
-        setCandidateDisplay('—');
-        return;
-      }
-
-      // Let browser handle control keys
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      // Backspace: let engine pop the last raw keystroke and recompute
-      if (e.key === 'Backspace') {
-        const result = engine.processBackspace();
-        if (result === null) return;
-        if (result.type === 'Passthrough') {
-          // No buffer → let browser delete the previous committed char
-          return;
-        }
-        e.preventDefault();
-        const { delete_back, text } = result;
-        replaceCandidate(ta, candidate, text);
-        candidate = text;
-        log(`Backspace → "${text}"`, 'replace');
-        setCandidateDisplay(text || '—');
-        return;
-      }
-
-      if (e.key.length !== 1) return; // non-printable (arrow keys etc.)
-
-      e.preventDefault();
-
-      const key = e.key;
+    function handleKey(ta, key) {
       const result = engine.processKey(key);
-
-      if (result === null) return;
-
-      const ta = document.getElementById('input-area');
+      if (!result) return;
 
       if (result.type === 'Passthrough') {
-        // Commit any pending candidate first
         if (candidate) {
           replaceCandidate(ta, candidate, candidate);
           candidate = '';
@@ -320,14 +312,12 @@
         replaceCandidate(ta, candidate, text);
         candidate = text;
         log(`Replace -${delete_back} +"${text}"`, 'replace');
-        // Don't show space/delimiter as candidate
         const display = text.trimEnd();
         if (display === '') {
           setCandidateDisplay('—');
           candidate = '';
         } else {
           setCandidateDisplay(display);
-          // If last char is a delimiter the syllable was committed
           if (isDelimiter(text[text.length - 1])) {
             candidate = '';
             setCandidateDisplay('—');
