@@ -190,13 +190,17 @@ impl Engine {
     }
 
     fn apply_char_sub(&mut self, key: char, sub: String) -> EngineOutput {
-        // Only apply char sub at the start of a syllable
-        if !self.buffer.is_empty() {
+        // Apply char_sub when buffer is empty OR has only initial consonants (no vowel yet).
+        // Example: 'n'+'w' → "nư" because 'n' is an initial and 'w' supplies the nucleus.
+        if !self.buffer.is_empty() && candidate_has_vowel(&self.buffer.candidate) {
             return self.append_literal(key);
         }
+        let prev_len = self.buffer.candidate.chars().count();
+        // Preserve any initial consonants already in the candidate
+        let new_candidate = format!("{}{}", self.buffer.candidate, sub);
         self.buffer.had_char_sub = true;
-        self.buffer.push_raw(key, sub.clone());
-        EngineOutput::Replace { delete_back: 0, text: sub }
+        self.buffer.push_raw(key, new_candidate.clone());
+        EngineOutput::Replace { delete_back: prev_len, text: new_candidate }
     }
 
     fn append_literal(&mut self, key: char) -> EngineOutput {
@@ -222,17 +226,15 @@ impl Engine {
     }
 
     fn try_double_press_escape(&mut self, key: char) -> Option<EngineOutput> {
-        // If 'w' was last key and buffer is "ư", pressing 'w' again → output "w"
         let raw_last = self.buffer.raw.chars().last()?;
         if raw_last != key {
             return None;
         }
-        // Check if the last key caused a conversion (raw ≠ candidate)
         let prev_len = self.buffer.candidate.chars().count();
-        let _new_raw = self.buffer.raw.clone() + &key.to_string();
-        // Revert to raw key only
         let escaped = key.to_string();
         self.buffer.push_raw(key, escaped.clone());
+        // User explicitly escaped — finalize_buffer must NOT revert to raw.
+        self.buffer.had_char_sub = false;
         Some(EngineOutput::Replace {
             delete_back: prev_len,
             text: escaped,
@@ -247,6 +249,25 @@ impl Engine {
 
 fn is_delimiter(c: char) -> bool {
     matches!(c, ' ' | '\n' | '\r' | '\t' | '.' | ',' | '!' | '?' | ';' | ':')
+}
+
+/// Returns true if `s` contains at least one Vietnamese vowel (base or toned).
+fn candidate_has_vowel(s: &str) -> bool {
+    s.chars().any(|c| matches!(c,
+        'a'|'ă'|'â'|'e'|'ê'|'i'|'o'|'ô'|'ơ'|'u'|'ư'|'y'
+        |'á'|'à'|'ả'|'ã'|'ạ'
+        |'ắ'|'ằ'|'ẳ'|'ẵ'|'ặ'
+        |'ấ'|'ầ'|'ẩ'|'ẫ'|'ậ'
+        |'é'|'è'|'ẻ'|'ẽ'|'ẹ'
+        |'ế'|'ề'|'ể'|'ễ'|'ệ'
+        |'í'|'ì'|'ỉ'|'ĩ'|'ị'
+        |'ó'|'ò'|'ỏ'|'õ'|'ọ'
+        |'ố'|'ồ'|'ổ'|'ỗ'|'ộ'
+        |'ớ'|'ờ'|'ở'|'ỡ'|'ợ'
+        |'ú'|'ù'|'ủ'|'ũ'|'ụ'
+        |'ứ'|'ừ'|'ử'|'ữ'|'ự'
+        |'ý'|'ỳ'|'ỷ'|'ỹ'|'ỵ'
+    ))
 }
 
 #[cfg(test)]

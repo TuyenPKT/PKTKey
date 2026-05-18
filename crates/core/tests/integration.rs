@@ -166,6 +166,31 @@ fn english_mode_no_conversion() {
     assert_eq!(result, "watch ");
 }
 
+// ── char_sub after initial consonant ──────────────────────────────────────
+
+#[test]
+fn nw_gives_nu_horn() {
+    // 'n' (initial consonant) + 'w' (char_sub vowel) → "nư"
+    let result = type_sequence(&mut telex(), "nw ");
+    assert_eq!(result, "nư ");
+}
+
+#[test]
+fn nws_gives_nu_sac() {
+    // 'n' + 'w' + 's' (tone sắc) → "nứ"
+    let result = type_sequence(&mut telex(), "nws ");
+    assert_eq!(result, "nứ ");
+}
+
+// ── Double-press escape commits correctly ──────────────────────────────────
+
+#[test]
+fn ww_space_gives_w_not_ww() {
+    // 'w'→'ư', 'w' (escape)→'w', space → should commit "w " not "ww "
+    let result = type_sequence(&mut telex(), "ww ");
+    assert_eq!(result, "w ");
+}
+
 // ── Backspace ──────────────────────────────────────────────────────────────
 
 #[test]
