@@ -31,7 +31,7 @@ impl WasmEngine {
     }
 
     /// Process one key press. Returns a JS object:
-    /// ```
+    /// ```text
     /// { type: "Replace", deleteBefore: number, text: string }
     /// { type: "Passthrough" }
     /// { type: "Commit", text: string }

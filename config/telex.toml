@@ -1,0 +1,27 @@
+name = "Telex"
+double_press_escape = true
+protected_words = []
+
+# Ký tự thay thế đơn — áp dụng ở đầu âm tiết hoặc sau phụ âm đầu.
+# Hiện tại để trống; 'w' gõ thật, dùng 'uw'/'ow' thay thế.
+[char_sub]
+
+# Ghép đôi ký tự → nguyên âm đặc biệt hoặc phụ âm đặc biệt
+[double_char]
+"dd" = "đ"
+"aa" = "â"
+"ee" = "ê"
+"oo" = "ô"
+"aw" = "ă"
+"ow" = "ơ"
+"uw" = "ư"
+
+# Phím thanh điệu
+[tone]
+"s" = "sac"     # sắc  ◌́
+"f" = "huyen"   # huyền ◌̀
+"r" = "hoi"     # hỏi  ◌̉
+"x" = "nga"     # ngã  ◌̃
+"j" = "nang"    # nặng ◌̣
+
+[vowel_mod]

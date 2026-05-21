@@ -19,8 +19,9 @@ static NUCLEI: &[&str] = &[
     "iêu", "oai", "oao", "oay", "oeo", "uai", "uay", "uây", "ươi", "ươu", "yêu",
     // Diphthongs
     "ai", "ao", "au", "ay", "âu", "ây",
+    "eo", "êu",
     "ia", "iê", "iu",
-    "oa", "oă", "oe", "oi",
+    "oa", "oă", "oe", "oi", "ôi", "ơi",
     "ua", "uâ", "uê", "ui", "uo", "uô", "uy",
     "ưa", "ươ", "ưi", "ưu",
     "ya", "yê",
@@ -65,11 +66,22 @@ fn try_nucleus_final(s: &str) -> bool {
             continue;
         }
         let nucleus = &s[..s.len() - fin.len()];
-        if NUCLEI.contains(&nucleus) {
+        if NUCLEI.contains(&nucleus) && nucleus_final_valid(nucleus, fin) {
             return true;
         }
     }
     false
+}
+
+/// Extra phonological constraints: some (nucleus, final) pairs don't exist in Vietnamese.
+/// Returns false for combinations that are structurally illegal.
+fn nucleus_final_valid(nucleus: &str, fin: &str) -> bool {
+    // Plain 'e' only combines with no-final, 'm', 'n'.
+    // "et", "ec", "ep", "ech", "eng", "enh" don't exist in standard Vietnamese.
+    if nucleus == "e" && !matches!(fin, "" | "m" | "n" | "ng") {
+        return false;
+    }
+    true
 }
 
 /// Returns true if the string contains characters outside the Vietnamese alphabet.
@@ -144,6 +156,29 @@ mod tests {
         assert!(!is_valid_syllable("xyz"));
         assert!(!is_valid_syllable("strength"));
         assert!(!is_valid_syllable("ưwx"));
+    }
+
+    #[test]
+    fn invalid_e_plus_t() {
+        // plain 'e' + 't' is not a Vietnamese combination — "test" must not become "tét"
+        assert!(!is_valid_syllable("tét"), "tét should be invalid (use 'ê' for tết)");
+        assert!(!is_valid_syllable("bét"));
+        assert!(!is_valid_syllable("nét"), "nét invalid — 'nết' uses ê");
+    }
+
+    #[test]
+    fn valid_e_no_final() {
+        // plain 'e' with no final consonant is fine: "bé", "né", etc.
+        assert!(is_valid_syllable("bé"));
+        assert!(is_valid_syllable("né"));
+        assert!(is_valid_syllable("xe"));
+    }
+
+    #[test]
+    fn valid_e_m_n() {
+        assert!(is_valid_syllable("em"));
+        assert!(is_valid_syllable("xem"));
+        assert!(is_valid_syllable("bên"), "bên uses ê but 'en' structure ok");
     }
 
     // ── Edge cases ───────────────────────────────────────────────────────────

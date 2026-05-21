@@ -1,0 +1,26 @@
+name = "VNI"
+double_press_escape = true
+protected_words = []
+
+[char_sub]
+
+# Ghép ký tự + số → nguyên âm đặc biệt hoặc phụ âm đặc biệt
+[double_char]
+"a6" = "â"
+"a8" = "ă"
+"e6" = "ê"
+"o6" = "ô"
+"o7" = "ơ"
+"u7" = "ư"
+"d9" = "đ"
+
+# Phím thanh điệu (số)
+[tone]
+"1" = "sac"     # sắc  ◌́
+"2" = "huyen"   # huyền ◌̀
+"3" = "hoi"     # hỏi  ◌̉
+"4" = "nga"     # ngã  ◌̃
+"5" = "nang"    # nặng ◌̣
+"0" = "flat"    # bỏ thanh
+
+[vowel_mod]

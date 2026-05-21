@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>vn.tuyen.PKTKeyIME</string>
+
+    <key>CFBundleExecutable</key>
+    <string>PKTKeyIME</string>
+
+    <key>CFBundleName</key>
+    <string>PKTKey</string>
+
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+
+    <!-- Modern IMK key structure (matches working IMEs on macOS 14+) -->
+    <key>Component</key>
+    <dict>
+        <key>IMKInputMethod</key>
+        <dict>
+            <!-- Swift class name with module prefix (no @objc rename) -->
+            <key>InputMethodServerControllerClass</key>
+            <string>PKTKeyIME.InputController</string>
+        </dict>
+    </dict>
+
+    <!-- Connection name used by IMKServer(name:bundleIdentifier:) -->
+    <key>InputMethodConnectionName</key>
+    <string>vn.tuyen.pktkey.connection</string>
+
+    <key>LSUIElement</key>
+    <true/>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+</dict>
+</plist>

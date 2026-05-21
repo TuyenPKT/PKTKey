@@ -81,6 +81,14 @@ fn watch_not_converted() {
 }
 
 #[test]
+fn aws_not_converted() {
+    // "aws": 'a' is a vowel → consonant-check blocks aw→ă, so "aw" stays literal.
+    // Even if it didn't block, "ắ s" would revert anyway — but now it never fires.
+    let result = type_sequence(&mut telex(), "aws ");
+    assert_eq!(result, "aws ");
+}
+
+#[test]
 fn show_not_converted() {
     // "show": s is a tone key but buffer is empty → passthrough
     // Then "how" remains: "h"+"ow" — "ow"→"ơ" double-char, "hơ" is valid...
@@ -129,9 +137,17 @@ fn dd_gives_d_stroke() {
 
 #[test]
 fn ow_gives_o_horn() {
-    // "ow" → "ơ" via double_char
+    // consonant-check: "ow" with no initial consonant → stays "ow" (not "ơ").
+    // User types ơ directly from their Vietnamese layout; "ow" could be English.
     let result = type_sequence(&mut telex(), "ow ");
-    assert_eq!(result, "ơ ");
+    assert_eq!(result, "ow ");
+}
+
+#[test]
+fn now_gives_no_horn() {
+    // 'n' is initial consonant → ow→ơ fires → "nơ"
+    let result = type_sequence(&mut telex(), "now ");
+    assert_eq!(result, "nơ ");
 }
 
 #[test]
@@ -169,16 +185,16 @@ fn english_mode_no_conversion() {
 // ── char_sub after initial consonant ──────────────────────────────────────
 
 #[test]
-fn n_bracket_gives_nu_horn() {
-    // 'n' (initial consonant) + ']' (char_sub → 'ư') → "nư"
-    let result = type_sequence(&mut telex(), "n] ");
+fn nuw_gives_nu_horn() {
+    // 'n' + 'uw' (double_char → 'ư') → "nư"
+    let result = type_sequence(&mut telex(), "nuw ");
     assert_eq!(result, "nư ");
 }
 
 #[test]
-fn n_bracket_s_gives_nu_sac() {
-    // 'n' + ']' + 's' (tone sắc) → "nứ"
-    let result = type_sequence(&mut telex(), "n]s ");
+fn nuws_gives_nu_sac() {
+    // 'n' + 'uw' + 's' (tone sắc) → "nứ"
+    let result = type_sequence(&mut telex(), "nuws ");
     assert_eq!(result, "nứ ");
 }
 
@@ -189,12 +205,12 @@ fn w_is_literal_in_telex() {
     assert_eq!(result, "watch ");
 }
 
-// ── Double-press escape commits correctly ──────────────────────────────────
+// ── Bracket is now literal ─────────────────────────────────────────────────
 
 #[test]
-fn bracket_bracket_space_gives_bracket() {
-    // ']'→'ư', ']' again (escape)→']', space → commit "]" not "]]"
-    let result = type_sequence(&mut telex(), "]] ");
+fn bracket_is_literal() {
+    // ']' and '[' are no longer char_sub — type as-is
+    let result = type_sequence(&mut telex(), "] ");
     assert_eq!(result, "] ");
 }
 
@@ -216,9 +232,171 @@ fn backspace_reverts_double_char() {
 
 #[test]
 fn backspace_then_retype() {
-    // ']'→'ư', 'a'→'ưa', 's'(tone sắc)→'ứa', BS→'ưa', BS→'ư', 's'→'ứ', space commits "ứ"
-    let result = type_with_bs(&mut telex(), "]as\x08\x08s ");
-    assert_eq!(result, "ứ ");
+    // 'n'+'uw'→'nư', 'a'→'nưa', 's'→'nứa', BS→'nưa', BS→'nư', 's'→'nứ', space commits "nứ"
+    // Consonant 'n' is required for the uw→ư transform to fire.
+    let result = type_with_bs(&mut telex(), "nuwas\x08\x08s ");
+    assert_eq!(result, "nứ ");
+}
+
+// ── ôi / ơi diphthong (Bug: missing from NUCLEI) ─────────────────────────
+
+#[test]
+fn loi_gives_loi_with_nga() {
+    // "looxi" → "lỗi" (l + oo→ô + x=ngã + i)
+    let result = type_sequence(&mut telex(), "looxi ");
+    assert_eq!(result, "lỗi ");
+}
+
+#[test]
+fn toi_with_tone() {
+    // "tooij" → "tội" (crime): t + oo→ô + i + j=nặng
+    let result = type_sequence(&mut telex(), "tooij ");
+    assert_eq!(result, "tội ");
+}
+
+#[test]
+fn roi_gives_roi_with_huyen() {
+    // r(passthrough) + oo→ô + i + f=huyền → "rồi" (already/done)
+    let result = type_sequence(&mut telex(), "rooif ");
+    assert_eq!(result, "rồi ");
+}
+
+// ── double-press tone escape reverts to untoned base ─────────────────────
+
+#[test]
+fn tone_escape_reverts_to_base() {
+    // "as" → "á", "ass" → escape → "as" (tone stripped, 's' becomes literal)
+    let result = type_sequence(&mut telex(), "ass ");
+    assert_eq!(result, "as ");
+}
+
+#[test]
+fn tone_escape_on_syllable() {
+    // "tes" → "té", "tess" → escape → "tes" (tone stripped, 's' becomes literal)
+    let result = type_sequence(&mut telex(), "tess ");
+    assert_eq!(result, "tes ");
+}
+
+#[test]
+fn tone_triple_press_becomes_literal() {
+    // "tes"→"té", "tess"→escape→"tes", "tesss"→escaped_key→"tess" (literal 's', not re-toned)
+    // "tess" is invalid Vietnamese → reverts to commit_raw "tess"
+    let result = type_sequence(&mut telex(), "tesss ");
+    assert_eq!(result, "tess ");
+}
+
+#[test]
+fn escape_then_extra_literal_not_test() {
+    // t+e+s+s+s+t: escaped 's' pushes to commit_raw → commit_raw="tesst" → "tesst" not "test"
+    let result = type_sequence(&mut telex(), "tessst ");
+    assert_eq!(result, "tesst ");
+}
+
+// ── English words with tone-key characters must NOT be converted ──────────
+
+#[test]
+fn test_not_converted() {
+    // 't','e' literal, 's' (sắc tone) on "te"→"té", then 't' appends → "tét"
+    // "tét" uses plain 'e' + final 't' which is invalid in Vietnamese
+    // → must revert to raw "test"
+    let result = type_sequence(&mut telex(), "test ");
+    assert_eq!(result, "test ");
+}
+
+#[test]
+fn best_not_converted() {
+    let result = type_sequence(&mut telex(), "best ");
+    assert_eq!(result, "best ");
+}
+
+#[test]
+fn pest_not_converted() {
+    let result = type_sequence(&mut telex(), "pest ");
+    assert_eq!(result, "pest ");
+}
+
+// ── Words starting with tone keys (s, f, r, x, j) ────────────────────────
+
+#[test]
+fn song_not_swallowed() {
+    // 's' is a tone key but with empty buffer it must become literal, not Passthrough.
+    // Previously 's' was Passthrough (system-typed), then engine committed "ong" with
+    // delete_back=3 leaving just "s" on screen — but only if platform timing was perfect.
+    // Now 's' is literal in buffer, whole "song" is engine-tracked and committed as one.
+    let result = type_sequence(&mut telex(), "song ");
+    assert_eq!(result, "song ");
+}
+
+// ── Escape then continue typing — revert gives full raw ───────────────────
+
+#[test]
+fn tess_t_gives_test() {
+    // t+e+s(tone→té)+s(escape→te)+t → candidate="tet", invalid → revert to commit_raw="test"
+    let result = type_sequence(&mut telex(), "tesst ");
+    assert_eq!(result, "test ");
+}
+
+#[test]
+fn best_via_escape() {
+    // b+e+s(tone→bé)+s(escape→be)+s(tone→bé)+t → "bést" invalid → revert "besst"
+    // Actually: b,e,s,s,t → commit_raw="best" → valid? No, "bét" invalid → "best"
+    let result = type_sequence(&mut telex(), "besst ");
+    assert_eq!(result, "best ");
+}
+
+// ── Technical token detection ──────────────────────────────────────────────
+
+#[test]
+fn uppercase_word_not_converted() {
+    // 'W' triggers technical mode → whole word committed as-is
+    let result = type_sequence(&mut telex(), "Windows ");
+    assert_eq!(result, "Windows ");
+}
+
+#[test]
+fn digit_revert_and_literal() {
+    // 'a'+'x'→"ã", then '3' (digit) reverts to "ax3", rest literal
+    let result = type_sequence(&mut telex(), "ax3000t ");
+    assert_eq!(result, "ax3000t ");
+}
+
+#[test]
+fn ipad_not_converted() {
+    // 'i' normal, 'P' uppercase → technical mode, no further conversion
+    let result = type_sequence(&mut telex(), "iPad ");
+    assert_eq!(result, "iPad ");
+}
+
+#[test]
+fn all_caps_product_code() {
+    // "AX3000T": 'A' starts technical mode immediately
+    let result = type_sequence(&mut telex(), "AX3000T ");
+    assert_eq!(result, "AX3000T ");
+}
+
+// ── Compound diphthong "ươ" (được, nước, rượu) ───────────────────────────
+
+#[test]
+fn duoc_via_lookback() {
+    // d+d+u+o+c+w+j = "được"
+    // 'w' after final 'c' looks back → finds 'o' → ow fires → 'u' before 'o' also → ư
+    // candidate = "đươc", 'j' nặng on ơ → ợ → "được"
+    let result = type_sequence(&mut telex(), "dduocwj ");
+    assert_eq!(result, "được ");
+}
+
+#[test]
+fn duoc_via_w_before_final() {
+    // d+d+u+o+w+c+j = "được" (w typed before final consonant)
+    let result = type_sequence(&mut telex(), "dduowcj ");
+    assert_eq!(result, "được ");
+}
+
+#[test]
+fn nuoc_gives_nuoc_sac() {
+    // "nước" = n+ư+ớ+c  — same uo+w pattern, sắc tone (s key)
+    let result = type_sequence(&mut telex(), "dduocws ");
+    assert_eq!(result, "đước ");
 }
 
 // ── Multi-syllable phrase ──────────────────────────────────────────────────

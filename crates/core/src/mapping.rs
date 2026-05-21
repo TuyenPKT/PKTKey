@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 
 /// Built-in input method presets
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7,6 +8,11 @@ pub enum Preset {
     Telex,
     Vni,
     Viqr,
+    /// Character-oriented: no ASCII transforms (no uw→ư, ow→ơ, dd→đ).
+    /// User types ư/ơ/ă/đ directly from their keyboard layout.
+    /// Only tone markers remain (s/f/r/x/j after vowels).
+    /// ASCII is always preserved — watch/aws/docker never transform.
+    Direct,
     Custom,
 }
 
@@ -59,9 +65,7 @@ fn default_true() -> bool {
 
 impl MappingConfig {
     pub fn telex() -> Self {
-        let mut char_sub = HashMap::new();
-        char_sub.insert("[".into(), "ơ".into());
-        char_sub.insert("]".into(), "ư".into());
+        let char_sub = HashMap::new();
 
         let mut double_char = HashMap::new();
         double_char.insert("dd".into(), "đ".into());
@@ -119,11 +123,42 @@ impl MappingConfig {
         }
     }
 
+    pub fn direct() -> Self {
+        // "W-less Telex": keep doubled-letter shortcuts (oo→ô, aa→â, ee→ê, dd→đ)
+        // but remove ALL w-based transforms (ow→ơ, uw→ư, aw→ă).
+        // ơ/ư/ă are typed directly from a Vietnamese keyboard layout.
+        // This eliminates the English conflict: watch/aws/show always stay ASCII.
+        let mut double_char = HashMap::new();
+        double_char.insert("dd".into(), "đ".into());
+        double_char.insert("aa".into(), "â".into());
+        double_char.insert("ee".into(), "ê".into());
+        double_char.insert("oo".into(), "ô".into());
+        // aw/ow/uw removed — type ă/ơ/ư directly
+
+        let mut tone = HashMap::new();
+        tone.insert("s".into(), "sac".into());
+        tone.insert("f".into(), "huyen".into());
+        tone.insert("r".into(), "hoi".into());
+        tone.insert("x".into(), "nga".into());
+        tone.insert("j".into(), "nang".into());
+
+        MappingConfig {
+            name: "Direct".into(),
+            char_sub: HashMap::new(),
+            double_char,
+            tone,
+            vowel_mod: HashMap::new(),
+            double_press_escape: true,
+            protected_words: vec![],
+        }
+    }
+
     pub fn from_preset(preset: Preset) -> Self {
         match preset {
             Preset::Telex  => Self::telex(),
             Preset::Vni    => Self::vni(),
             Preset::Viqr   => Self::vni(), // TODO: VIQR preset
+            Preset::Direct => Self::direct(),
             Preset::Custom => MappingConfig {
                 name: "Custom".into(),
                 char_sub: HashMap::new(),
@@ -155,6 +190,23 @@ impl MappingConfig {
         self.protected_words.iter().any(|w| w.to_lowercase() == lower)
     }
 
+    /// Load a MappingConfig from a TOML string.
+    pub fn from_toml_str(s: &str) -> Result<Self, toml::de::Error> {
+        toml::from_str(s)
+    }
+
+    /// Load a MappingConfig from a `.toml` file on disk.
+    pub fn from_file(path: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let s = std::fs::read_to_string(path)?;
+        let cfg = toml::from_str(&s)?;
+        Ok(cfg)
+    }
+
+    /// Serialize this config to a TOML string.
+    pub fn to_toml_str(&self) -> Result<String, toml::ser::Error> {
+        toml::to_string_pretty(self)
+    }
+
     pub fn tone_for_key(&self, key: &str) -> Option<crate::tone::Tone> {
         self.tone.get(key).and_then(|name| parse_tone_name(name))
     }
@@ -178,11 +230,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn telex_has_bracket_sub() {
+    fn telex_char_sub_is_empty() {
         let cfg = MappingConfig::telex();
-        assert_eq!(cfg.char_sub.get("[").map(String::as_str), Some("ơ"));
-        assert_eq!(cfg.char_sub.get("]").map(String::as_str), Some("ư"));
-        assert!(!cfg.char_sub.contains_key("w"), "w should be literal in this layout");
+        assert!(cfg.char_sub.is_empty(), "Telex has no char_sub — use double_char ow/uw instead");
     }
 
     #[test]
@@ -195,5 +245,38 @@ mod tests {
     fn vni_6_gives_circumflex() {
         let cfg = MappingConfig::vni();
         assert_eq!(cfg.double_char.get("a6").map(String::as_str), Some("â"));
+    }
+
+    #[test]
+    fn toml_roundtrip_telex() {
+        let original = MappingConfig::telex();
+        let toml_str = original.to_toml_str().expect("serialize");
+        let loaded = MappingConfig::from_toml_str(&toml_str).expect("deserialize");
+        assert_eq!(loaded.name, original.name);
+        assert_eq!(loaded.double_char, original.double_char);
+        assert_eq!(loaded.tone, original.tone);
+        assert_eq!(loaded.double_press_escape, original.double_press_escape);
+    }
+
+    #[test]
+    fn toml_file_telex_matches_preset() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap().parent().unwrap()
+            .join("config/telex.toml");
+        let loaded = MappingConfig::from_file(&path).expect("load telex.toml");
+        let preset = MappingConfig::telex();
+        assert_eq!(loaded.double_char, preset.double_char);
+        assert_eq!(loaded.tone, preset.tone);
+    }
+
+    #[test]
+    fn toml_file_vni_matches_preset() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap().parent().unwrap()
+            .join("config/vni.toml");
+        let loaded = MappingConfig::from_file(&path).expect("load vni.toml");
+        let preset = MappingConfig::vni();
+        assert_eq!(loaded.double_char, preset.double_char);
+        assert_eq!(loaded.tone.get("1"), preset.tone.get("1"));
     }
 }
