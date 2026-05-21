@@ -6,6 +6,12 @@ platforms/macos/PKTKeyIME/build/
 platforms/macos/PKTKeyIME/build_out/
 platforms/macos/PKTKeyIME/*.profraw
 platforms/macos/PKTKeyIME/default.profraw
+# Xcode user-specific / binary artifacts
+**/.DS_Store
+*.xcuserstate
+**/xcuserdata/
+# Pre-built static lib — rebuilt by build-mac.sh
+platforms/macos/PKTKeyIME/PKTKeyIME/libpktkey_capi.a
 
 # ── Windows platform ──────────────────────────────────────────────────────────
 # Separate Cargo workspace — có target/ riêng

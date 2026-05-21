@@ -1,0 +1,594 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		B49562862FBC32BF001A4A59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B495626C2FBC32BC001A4A59 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B49562732FBC32BC001A4A59;
+			remoteInfo = PKTKeyIME;
+		};
+		B49562902FBC32BF001A4A59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B495626C2FBC32BC001A4A59 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B49562732FBC32BC001A4A59;
+			remoteInfo = PKTKeyIME;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		B49562742FBC32BC001A4A59 /* PKTKeyIME.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PKTKeyIME.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B49562852FBC32BF001A4A59 /* PKTKeyIMETests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PKTKeyIMETests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B495628F2FBC32BF001A4A59 /* PKTKeyIMEUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PKTKeyIMEUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B49562AE2FBC383F001A4A59 /* libpktkey_capi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpktkey_capi.a; path = ../../../target/release/libpktkey_capi.a; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		B49562762FBC32BC001A4A59 /* PKTKeyIME */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PKTKeyIME;
+			sourceTree = "<group>";
+		};
+		B49562882FBC32BF001A4A59 /* PKTKeyIMETests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PKTKeyIMETests;
+			sourceTree = "<group>";
+		};
+		B49562922FBC32BF001A4A59 /* PKTKeyIMEUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PKTKeyIMEUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B49562712FBC32BC001A4A59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B49562822FBC32BF001A4A59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B495628C2FBC32BF001A4A59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B495626B2FBC32BC001A4A59 = {
+			isa = PBXGroup;
+			children = (
+				B49562762FBC32BC001A4A59 /* PKTKeyIME */,
+				B49562882FBC32BF001A4A59 /* PKTKeyIMETests */,
+				B49562922FBC32BF001A4A59 /* PKTKeyIMEUITests */,
+				B49562AD2FBC383F001A4A59 /* Frameworks */,
+				B49562752FBC32BC001A4A59 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B49562752FBC32BC001A4A59 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B49562742FBC32BC001A4A59 /* PKTKeyIME.app */,
+				B49562852FBC32BF001A4A59 /* PKTKeyIMETests.xctest */,
+				B495628F2FBC32BF001A4A59 /* PKTKeyIMEUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B49562AD2FBC383F001A4A59 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B49562AE2FBC383F001A4A59 /* libpktkey_capi.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B49562732FBC32BC001A4A59 /* PKTKeyIME */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B49562992FBC32BF001A4A59 /* Build configuration list for PBXNativeTarget "PKTKeyIME" */;
+			buildPhases = (
+				B49562702FBC32BC001A4A59 /* Sources */,
+				B49562712FBC32BC001A4A59 /* Frameworks */,
+				B49562722FBC32BC001A4A59 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B49562762FBC32BC001A4A59 /* PKTKeyIME */,
+			);
+			name = PKTKeyIME;
+			packageProductDependencies = (
+			);
+			productName = PKTKeyIME;
+			productReference = B49562742FBC32BC001A4A59 /* PKTKeyIME.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B49562842FBC32BF001A4A59 /* PKTKeyIMETests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B495629C2FBC32BF001A4A59 /* Build configuration list for PBXNativeTarget "PKTKeyIMETests" */;
+			buildPhases = (
+				B49562812FBC32BF001A4A59 /* Sources */,
+				B49562822FBC32BF001A4A59 /* Frameworks */,
+				B49562832FBC32BF001A4A59 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B49562872FBC32BF001A4A59 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B49562882FBC32BF001A4A59 /* PKTKeyIMETests */,
+			);
+			name = PKTKeyIMETests;
+			packageProductDependencies = (
+			);
+			productName = PKTKeyIMETests;
+			productReference = B49562852FBC32BF001A4A59 /* PKTKeyIMETests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B495628E2FBC32BF001A4A59 /* PKTKeyIMEUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B495629F2FBC32BF001A4A59 /* Build configuration list for PBXNativeTarget "PKTKeyIMEUITests" */;
+			buildPhases = (
+				B495628B2FBC32BF001A4A59 /* Sources */,
+				B495628C2FBC32BF001A4A59 /* Frameworks */,
+				B495628D2FBC32BF001A4A59 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B49562912FBC32BF001A4A59 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B49562922FBC32BF001A4A59 /* PKTKeyIMEUITests */,
+			);
+			name = PKTKeyIMEUITests;
+			packageProductDependencies = (
+			);
+			productName = PKTKeyIMEUITests;
+			productReference = B495628F2FBC32BF001A4A59 /* PKTKeyIMEUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B495626C2FBC32BC001A4A59 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					B49562732FBC32BC001A4A59 = {
+						CreatedOnToolsVersion = 16.2;
+						LastSwiftMigration = 1620;
+					};
+					B49562842FBC32BF001A4A59 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = B49562732FBC32BC001A4A59;
+					};
+					B495628E2FBC32BF001A4A59 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = B49562732FBC32BC001A4A59;
+					};
+				};
+			};
+			buildConfigurationList = B495626F2FBC32BC001A4A59 /* Build configuration list for PBXProject "PKTKeyIME" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B495626B2FBC32BC001A4A59;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B49562752FBC32BC001A4A59 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B49562732FBC32BC001A4A59 /* PKTKeyIME */,
+				B49562842FBC32BF001A4A59 /* PKTKeyIMETests */,
+				B495628E2FBC32BF001A4A59 /* PKTKeyIMEUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B49562722FBC32BC001A4A59 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B49562832FBC32BF001A4A59 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B495628D2FBC32BF001A4A59 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B49562702FBC32BC001A4A59 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B49562812FBC32BF001A4A59 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B495628B2FBC32BF001A4A59 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B49562872FBC32BF001A4A59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B49562732FBC32BC001A4A59 /* PKTKeyIME */;
+			targetProxy = B49562862FBC32BF001A4A59 /* PBXContainerItemProxy */;
+		};
+		B49562912FBC32BF001A4A59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B49562732FBC32BC001A4A59 /* PKTKeyIME */;
+			targetProxy = B49562902FBC32BF001A4A59 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B49562972FBC32BF001A4A59 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.8;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B49562982FBC32BF001A4A59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.8;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		B495629A2FBC32BF001A4A59 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = PKTKeyIME/PKTKeyIME.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YTTRGVN48M;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PKTKeyIME/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/PKTKeyIME",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-force_load",
+					/Users/tuyennguyen/GitHub/PKTKey/target/release/libpktkey_capi.a,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = vn.tuyen.PKTKeyIME;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "PKTKeyIME/PKTKeyIME-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B495629B2FBC32BF001A4A59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = PKTKeyIME/PKTKeyIME.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YTTRGVN48M;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PKTKeyIME/Info.plist;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/PKTKeyIME",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-force_load",
+					/Users/tuyennguyen/GitHub/PKTKey/target/release/libpktkey_capi.a,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = vn.tuyen.PKTKeyIME;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "PKTKeyIME/PKTKeyIME-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B495629D2FBC32BF001A4A59 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YTTRGVN48M;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.8;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vn.tuyen.PKTKeyIMETests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PKTKeyIME.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PKTKeyIME";
+			};
+			name = Debug;
+		};
+		B495629E2FBC32BF001A4A59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YTTRGVN48M;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.8;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vn.tuyen.PKTKeyIMETests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PKTKeyIME.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PKTKeyIME";
+			};
+			name = Release;
+		};
+		B49562A02FBC32BF001A4A59 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YTTRGVN48M;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vn.tuyen.PKTKeyIMEUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = PKTKeyIME;
+			};
+			name = Debug;
+		};
+		B49562A12FBC32BF001A4A59 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = YTTRGVN48M;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vn.tuyen.PKTKeyIMEUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = PKTKeyIME;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B495626F2FBC32BC001A4A59 /* Build configuration list for PBXProject "PKTKeyIME" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B49562972FBC32BF001A4A59 /* Debug */,
+				B49562982FBC32BF001A4A59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B49562992FBC32BF001A4A59 /* Build configuration list for PBXNativeTarget "PKTKeyIME" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B495629A2FBC32BF001A4A59 /* Debug */,
+				B495629B2FBC32BF001A4A59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B495629C2FBC32BF001A4A59 /* Build configuration list for PBXNativeTarget "PKTKeyIMETests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B495629D2FBC32BF001A4A59 /* Debug */,
+				B495629E2FBC32BF001A4A59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B495629F2FBC32BF001A4A59 /* Build configuration list for PBXNativeTarget "PKTKeyIMEUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B49562A02FBC32BF001A4A59 /* Debug */,
+				B49562A12FBC32BF001A4A59 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B495626C2FBC32BC001A4A59 /* Project object */;
+}
