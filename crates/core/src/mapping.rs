@@ -5,7 +5,14 @@ use std::path::Path;
 /// Built-in input method presets
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
+    /// Telex Codex — PKTKey enhanced Telex.
+    /// 'w' is literal; vowel mods via ow/uw/aw double-char only.
+    /// 'aw'→'ă' requires an initial consonant (prevents "aws"→"ắ").
     Telex,
+    /// Standard Telex (UniKey-compatible).
+    /// 'w' is a standalone char_sub for 'ư'.
+    /// No consonant guard — "aw" always fires.
+    TelexOriginal,
     Vni,
     Viqr,
     /// Character-oriented: no ASCII transforms (no uw→ư, ow→ơ, dd→đ).
@@ -54,6 +61,10 @@ pub struct MappingConfig {
     /// Double-press a key to escape conversion (output raw char)
     #[serde(default = "default_true")]
     pub double_press_escape: bool,
+    /// When true, 'aw'→'ă' only fires if the buffer already starts with a consonant.
+    /// Prevents "aws"→"ắ" (English false positive). Default false (standard Telex).
+    #[serde(default)]
+    pub aw_requires_consonant: bool,
     /// Words to never convert (English whitelist)
     #[serde(default)]
     pub protected_words: Vec<String>,
@@ -65,7 +76,40 @@ fn default_true() -> bool {
 
 impl MappingConfig {
     pub fn telex() -> Self {
-        let char_sub = HashMap::new();
+        let mut double_char = HashMap::new();
+        double_char.insert("dd".into(), "đ".into());
+        double_char.insert("aa".into(), "â".into());
+        double_char.insert("ee".into(), "ê".into());
+        double_char.insert("oo".into(), "ô".into());
+        double_char.insert("aw".into(), "ă".into());
+        double_char.insert("ow".into(), "ơ".into());
+        double_char.insert("uw".into(), "ư".into());
+
+        let mut tone = HashMap::new();
+        tone.insert("s".into(), "sac".into());
+        tone.insert("f".into(), "huyen".into());
+        tone.insert("r".into(), "hoi".into());
+        tone.insert("x".into(), "nga".into());
+        tone.insert("j".into(), "nang".into());
+
+        MappingConfig {
+            name: "Telex Codex".into(),
+            char_sub: HashMap::new(),
+            double_char,
+            tone,
+            vowel_mod: HashMap::new(),
+            double_press_escape: true,
+            aw_requires_consonant: true,   // guard: prevents "aws"→"ắ"
+            protected_words: vec![],
+        }
+    }
+
+    /// Standard Telex, UniKey-compatible.
+    /// 'w' is a char_sub for 'ư' (fires standalone or after initial consonant).
+    /// No consonant guard — "aw" fires even without initial consonant.
+    pub fn telex_original() -> Self {
+        let mut char_sub = HashMap::new();
+        char_sub.insert("w".into(), "ư".into());
 
         let mut double_char = HashMap::new();
         double_char.insert("dd".into(), "đ".into());
@@ -90,6 +134,7 @@ impl MappingConfig {
             tone,
             vowel_mod: HashMap::new(),
             double_press_escape: true,
+            aw_requires_consonant: false,  // no guard — standard Telex behavior
             protected_words: vec![],
         }
     }
@@ -119,6 +164,7 @@ impl MappingConfig {
             tone,
             vowel_mod: HashMap::new(),
             double_press_escape: true,
+            aw_requires_consonant: false,
             protected_words: vec![],
         }
     }
@@ -149,23 +195,26 @@ impl MappingConfig {
             tone,
             vowel_mod: HashMap::new(),
             double_press_escape: true,
+            aw_requires_consonant: false,
             protected_words: vec![],
         }
     }
 
     pub fn from_preset(preset: Preset) -> Self {
         match preset {
-            Preset::Telex  => Self::telex(),
-            Preset::Vni    => Self::vni(),
-            Preset::Viqr   => Self::vni(), // TODO: VIQR preset
-            Preset::Direct => Self::direct(),
-            Preset::Custom => MappingConfig {
+            Preset::Telex         => Self::telex(),
+            Preset::TelexOriginal => Self::telex_original(),
+            Preset::Vni           => Self::vni(),
+            Preset::Viqr          => Self::vni(), // TODO: VIQR preset
+            Preset::Direct        => Self::direct(),
+            Preset::Custom        => MappingConfig {
                 name: "Custom".into(),
                 char_sub: HashMap::new(),
                 double_char: HashMap::new(),
                 tone: HashMap::new(),
                 vowel_mod: HashMap::new(),
                 double_press_escape: true,
+                aw_requires_consonant: false,
                 protected_words: vec![],
             },
         }

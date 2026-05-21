@@ -1,13 +1,14 @@
-name = "Telex Codex"
+name = "Telex"
 double_press_escape = true
-# 'aw'→'ă' chỉ kích hoạt khi có phụ âm đầu — tránh "aws"→"ắ" (tiếng Anh)
-aw_requires_consonant = true
+aw_requires_consonant = false
 protected_words = []
 
-# Không có char_sub: 'w' gõ thật; dùng double_char ow/uw/aw để ra nguyên âm
+# 'w' là ký tự thay thế standalone → ư
+# Ví dụ: w → ư, nw → nư (UniKey-compatible)
 [char_sub]
+"w" = "ư"
 
-# Ghép đôi ký tự → nguyên âm đặc biệt hoặc phụ âm đặc biệt
+# Ghép đôi ký tự → nguyên âm / phụ âm đặc biệt
 [double_char]
 "dd" = "đ"
 "aa" = "â"

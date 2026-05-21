@@ -91,18 +91,71 @@ pub fn apply_tone(s: &str, tone: Tone) -> Option<String> {
 }
 
 fn find_main_vowel_index(s: &str) -> Option<usize> {
-    const VOWEL_PRIORITY: &[char] = &['ê', 'ô', 'ă', 'â', 'ơ', 'ư', 'a', 'e', 'o', 'u', 'i', 'y'];
     let chars: Vec<char> = s.chars().collect();
 
-    // Priority vowel wins
-    for &priority in VOWEL_PRIORITY {
-        if let Some(idx) = chars.iter().position(|&c| c == priority) {
+    // Step 1: modified vowels (ê, ô, ơ, ư, ă, â) always take the tone mark.
+    // These are unambiguous nuclei — wherever they appear they own the diacritic.
+    const MODIFIED: &[char] = &['ê', 'ô', 'ă', 'â', 'ơ', 'ư'];
+    for &mv in MODIFIED {
+        if let Some(idx) = chars.iter().position(|&c| c == mv) {
             return Some(idx);
         }
     }
-    // Fallback: last vowel
-    const PLAIN_VOWELS: &[char] = &['a', 'e', 'i', 'o', 'u', 'y'];
-    chars.iter().rposition(|c| PLAIN_VOWELS.contains(c))
+
+    // Step 2: two-vowel cluster rules for plain vowels.
+    //
+    // Modern Vietnamese orthography:
+    //   "gi" glide — 'i' after 'g' is a medial glide (part of the "gi" onset),
+    //          not the syllable nucleus. Tone skips it and lands on the next vowel.
+    //          "gia"→'a' (giả ✓), "giao"→'a' (giào ✓).
+    //          Same for "qu" glide: 'u' after 'q' is a medial glide.
+    //          "qua"→'a' (quả ✓), "quê"→'ê' (caught by Step 1).
+    //   "?a" — 'a' as coda after another vowel → preceding vowel gets tone
+    //          oa→o  (hòa ✓, not hoà), ia→i (bìa ✓), ua→u (múa ✓)
+    //   "uo" — base form of the "ươ" compound nucleus → 'o' is the main element
+    //          (đuoc+j → đuọc, then +w → được; 'u' is the medial glide here)
+    //   default → leftmost plain vowel
+    //          ao→a (chào ✓), ai→a, oi→o, ui→u
+    const PLAIN: &[char] = &['a', 'e', 'i', 'o', 'u', 'y'];
+    let vowels: Vec<(usize, char)> = chars
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| PLAIN.contains(c))
+        .map(|(i, &c)| (i, c))
+        .collect();
+
+    if vowels.len() >= 2 {
+        let (i1, v1) = vowels[0];
+        let (i2, v2) = vowels[1];
+
+        // Medial glide rule: 'i' after 'g' (gi-onset) or 'u' after 'q' (qu-onset)
+        // is part of the initial consonant cluster, not a vowel nucleus.
+        // Skip it — tone belongs to the following vowel.
+        let prev = if i1 > 0 { Some(chars[i1 - 1]) } else { None };
+        let is_medial_glide = (v1 == 'i' && prev == Some('g'))
+                           || (v1 == 'u' && prev == Some('q'));
+        if is_medial_glide {
+            // Apply cluster rules to the vowels *after* the glide
+            if vowels.len() >= 3 {
+                let (_, ev1) = vowels[1];
+                let (ei3, ev2) = vowels[2];
+                if ev2 == 'a' && ev1 != 'a' { return Some(i2); }
+                if ev1 == 'u' && ev2 == 'o'  { return Some(ei3); }
+            }
+            return Some(i2); // default: first non-glide vowel
+        }
+
+        // Rule 1: 'a' as coda — preceding vowel wins
+        if v2 == 'a' && v1 != 'a' {
+            return Some(i1);
+        }
+        // Rule 2: "uo" cluster — 'o' (second) is the nucleus of the "ươ" compound
+        if v1 == 'u' && v2 == 'o' {
+            return Some(i2);
+        }
+    }
+    // Default: leftmost plain vowel
+    vowels.first().map(|(i, _)| *i)
 }
 
 #[cfg(test)]
@@ -128,5 +181,79 @@ mod tests {
         let (base, tone) = strip_tone("watch");
         assert_eq!(base, "watch");
         assert_eq!(tone, Tone::Flat);
+    }
+
+    // ── Tone placement: modern Vietnamese orthography ──────────────────────
+
+    #[test]
+    fn hoa_huyen_on_o() {
+        // "hòa" — huyền trên 'o', không phải 'a' (chuẩn hiện đại)
+        let result = apply_tone("hoa", Tone::Huyen).unwrap();
+        assert_eq!(result, "hòa", "dấu huyền phải trên o, không phải a");
+    }
+
+    #[test]
+    fn hoa_sac_on_o() {
+        // "hóa" (chemistry) — sắc trên 'o'
+        let result = apply_tone("hoa", Tone::Sac).unwrap();
+        assert_eq!(result, "hóa");
+    }
+
+    #[test]
+    fn bia_huyen_on_i() {
+        // "bìa" (cover/page) — huyền trên 'i'
+        let result = apply_tone("bia", Tone::Huyen).unwrap();
+        assert_eq!(result, "bìa");
+    }
+
+    #[test]
+    fn mua_sac_on_u() {
+        // "múa" (dance) — sắc trên 'u'
+        let result = apply_tone("mua", Tone::Sac).unwrap();
+        assert_eq!(result, "múa");
+    }
+
+    #[test]
+    fn chao_huyen_on_a() {
+        // "chào" (greeting) — huyền trên 'a', 'a' vẫn đúng vì 'a' đứng trước 'o'
+        let result = apply_tone("chao", Tone::Huyen).unwrap();
+        assert_eq!(result, "chào");
+    }
+
+    #[test]
+    fn roi_huyen_on_o() {
+        // Plain "roi": 'o' is first plain vowel → huyền on 'o' → "ròi"
+        // (The real word "rồi" uses "ô" from Telex "oo"→"ô"; that goes through Step 1.)
+        let result = apply_tone("roi", Tone::Huyen).unwrap();
+        assert_eq!(result, "ròi");
+    }
+
+    #[test]
+    fn gia_hoi_on_a() {
+        // "giả" — hỏi trên 'a', không phải 'i' (i là glide của "gi")
+        let result = apply_tone("gia", Tone::Hoi).unwrap();
+        assert_eq!(result, "giả", "'i' sau 'g' là medial glide, tone phải trên 'a'");
+    }
+
+    #[test]
+    fn giao_huyen_on_a() {
+        // "giào" — huyền trên 'a' (glide 'i' bị bỏ qua)
+        let result = apply_tone("giao", Tone::Huyen).unwrap();
+        assert_eq!(result, "giào");
+    }
+
+    #[test]
+    fn qua_hoi_on_a() {
+        // "quả" — hỏi trên 'a', không phải 'u' (u là glide của "qu")
+        let result = apply_tone("qua", Tone::Hoi).unwrap();
+        assert_eq!(result, "quả", "'u' sau 'q' là medial glide, tone phải trên 'a'");
+    }
+
+    #[test]
+    fn roi_via_modified_o() {
+        // "rồi" is typed as "rooif": "oo"→"ô" first, then f=huyền on "rôi"
+        // Step 1 catches 'ô' → "rồi" (ồ = ô+huyền)
+        let result = apply_tone("rôi", Tone::Huyen).unwrap();
+        assert_eq!(result, "rồi");
     }
 }

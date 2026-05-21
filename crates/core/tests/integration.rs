@@ -137,10 +137,11 @@ fn dd_gives_d_stroke() {
 
 #[test]
 fn ow_gives_o_horn() {
-    // consonant-check: "ow" with no initial consonant → stays "ow" (not "ơ").
-    // User types ơ directly from their Vietnamese layout; "ow" could be English.
+    // "ow" standalone (no initial consonant) → "ơ" — needed for "ở", "ớ", "ờ" etc.
+    // Only "aw"→"ă" requires an initial consonant (conflicts with English "aws").
+    // "ow" and "uw" are allowed standalone.
     let result = type_sequence(&mut telex(), "ow ");
-    assert_eq!(result, "ow ");
+    assert_eq!(result, "ơ ");
 }
 
 #[test]
@@ -393,10 +394,131 @@ fn duoc_via_w_before_final() {
 }
 
 #[test]
+fn duoc_tone_before_modifier() {
+    // d+d+u+o+c+j+w = "được" — tone (j=nặng) typed BEFORE vowel modifier (w)
+    // Look-back strips tone from 'ọ' → base 'o' → "ow"→"ơ", u→ư, returns untoned "đươc"
+    // apply_replacement re-applies nặng via extract_current_tone → "được"
+    let result = type_sequence(&mut telex(), "dduocjw ");
+    assert_eq!(result, "được ");
+}
+
+#[test]
 fn nuoc_gives_nuoc_sac() {
-    // "nước" = n+ư+ớ+c  — same uo+w pattern, sắc tone (s key)
+    // "đước" = đ+ư+ớ+c — same uo+w pattern, sắc tone
     let result = type_sequence(&mut telex(), "dduocws ");
     assert_eq!(result, "đước ");
+}
+
+// ── Re-edit: backspace past space to continue composing ───────────────────
+
+#[test]
+fn reedit_add_tone_after_space() {
+    // "vieetj" → "việt", but if user typed "viee " + BS + "tj" should also give "việt "
+    // vie + space → "vie ", BS → re-edit → "vie", then "e"→"viê", "t"→"viêt", "j"→"việt"
+    let result = type_with_bs(&mut telex(), "viee \x08tj ");
+    assert_eq!(result, "việt ");
+}
+
+#[test]
+fn reedit_append_consonant_then_tone() {
+    // "xin" typed as "xi" + space → "xi ", BS → re-edit → "xi", "n" → "xin", " " → "xin "
+    let result = type_with_bs(&mut telex(), "xi \x08n ");
+    assert_eq!(result, "xin ");
+}
+
+#[test]
+fn reedit_add_modifier_after_space() {
+    // "nuw" + space → "nư ", BS → re-edit → "nư", "s" → "nứ"
+    let result = type_with_bs(&mut telex(), "nuw \x08s ");
+    assert_eq!(result, "nứ ");
+}
+
+#[test]
+fn reedit_only_one_level() {
+    // Extra space after commit clears the re-edit slot (any key press voids it).
+    // Both BSes become Passthrough — platform handles screen deletion manually.
+    let mut e = telex();
+    type_sequence(&mut e, "xi ");                       // commits "xi ", re-edit slot set
+    let extra = e.process_key(' ');                     // extra space → clears re-edit slot
+    assert_eq!(extra, EngineOutput::Replace { delete_back: 0, text: " ".into() });
+    let bs1 = e.process_backspace();                    // buffer empty, slot gone → Passthrough
+    assert_eq!(bs1, EngineOutput::Passthrough);
+    let bs2 = e.process_backspace();                    // still Passthrough
+    assert_eq!(bs2, EngineOutput::Passthrough);
+}
+
+#[test]
+fn reedit_voided_by_new_key() {
+    // After commit, typing a new key voids the re-edit slot
+    let mut e = telex();
+    type_sequence(&mut e, "xi ");   // commits "xi "
+    e.process_key('a');             // new word started → last_commit cleared
+    let bs = e.process_backspace(); // BS on "a" → pops 'a', not re-edit
+    // buffer had "a", backspace → empty candidate
+    assert_eq!(bs, EngineOutput::Replace { delete_back: 1, text: "".into() });
+}
+
+// ── "gi" / "qu" medial glide — tone trên vowel sau glide ─────────────────
+
+#[test]
+fn gian_hoi_gives_gian() {
+    // g+i+a+r+n → "giản" (hỏi trên 'a', không phải 'i')
+    let result = type_sequence(&mut telex(), "giarn ");
+    assert_eq!(result, "giản ");
+}
+
+#[test]
+fn gian_nang_gives_gian() {
+    // g+i+a+j+n → "giạn"
+    let result = type_sequence(&mut telex(), "giajn ");
+    assert_eq!(result, "giạn ");
+}
+
+#[test]
+fn qua_hoi_gives_qua() {
+    // q+u+a+r → "quả"
+    let result = type_sequence(&mut telex(), "quar ");
+    assert_eq!(result, "quả ");
+}
+
+// ── English words with repeated letters must not trigger escape ───────────
+
+#[test]
+fn apple_not_mangled() {
+    // "pp" must not fire double-press escape — no prior tone/char-sub
+    let result = type_sequence(&mut telex(), "apple ");
+    assert_eq!(result, "apple ");
+}
+
+#[test]
+fn hello_not_mangled() {
+    let result = type_sequence(&mut telex(), "hello ");
+    assert_eq!(result, "hello ");
+}
+
+#[test]
+fn google_not_mangled() {
+    // "oo"→"ô" fires → had_char_sub=true → "gô" + "gle" invalid → reverts to "google"
+    let result = type_sequence(&mut telex(), "google ");
+    assert_eq!(result, "google ");
+}
+
+// ── Double-char escape preserves prefix (g+o+o+o → "goo" not "o") ────────
+
+#[test]
+fn gooo_gives_goo() {
+    // g+o+o → "gô" (double_char), third o → escape → candidate "goo" (prefix "g" kept)
+    // had_char_sub resets to false after escape → finalize skips validation → "goo" committed
+    let result = type_sequence(&mut telex(), "gooo ");
+    assert_eq!(result, "goo ");
+}
+
+#[test]
+fn gooogle_gives_google() {
+    // g+o+o+o+g+l+e: escape on third 'o' gives "goo", then g,l,e appended → "google"
+    // "google" is not valid Vietnamese but had_char_sub=false after escape → committed as-is
+    let result = type_sequence(&mut telex(), "gooogle ");
+    assert_eq!(result, "google ");
 }
 
 // ── Multi-syllable phrase ──────────────────────────────────────────────────

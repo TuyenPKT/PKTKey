@@ -26,10 +26,23 @@ pub enum InputMode {
     English,
 }
 
+/// Remembers the last committed syllable so the user can backspace past the
+/// delimiter (space) and continue editing without retyping from scratch.
+struct LastCommit {
+    /// Raw keystrokes to replay (e.g. "viet" for "việt").
+    raw: String,
+    /// Number of Unicode chars that went to screen: committed text + delimiter.
+    /// Used as delete_back when re-entering edit mode.
+    display_len: usize,
+}
+
 pub struct Engine {
     pub config: MappingConfig,
     pub mode: InputMode,
     buffer: SyllableBuffer,
+    /// One-shot re-edit slot: set on every space-commit, consumed by the next
+    /// Backspace-on-empty-buffer, cleared by any other key or reset.
+    last_commit: Option<LastCommit>,
 }
 
 impl Engine {
@@ -38,6 +51,7 @@ impl Engine {
             config,
             mode: InputMode::Vietnamese,
             buffer: SyllableBuffer::new(),
+            last_commit: None,
         }
     }
 
@@ -49,6 +63,7 @@ impl Engine {
     /// Words in the dictionary whose diacritic-stripped form matches the current candidate.
     /// Returns empty vec if candidate already has Vietnamese diacritics (nothing to improve)
     /// or if no dictionary match exists.
+    /// Results are sorted by Vietnamese word frequency — most common first.
     pub fn get_suggestions(&self) -> Vec<String> {
         let cand = &self.buffer.candidate;
         if cand.is_empty() {
@@ -59,15 +74,19 @@ impl Engine {
         if phonetic != *cand {
             return vec![];
         }
-        crate::dict::lookup(&phonetic)
+        let mut suggestions: Vec<String> = crate::dict::lookup(&phonetic)
             .iter()
             .copied()
             .map(String::from)
-            .collect()
+            .collect();
+        // Sort by frequency rank: most common word first
+        suggestions.sort_by_key(|w| crate::freq::vi_rank(w));
+        suggestions
     }
 
     pub fn reset_buffer(&mut self) {
         self.buffer.clear();
+        self.last_commit = None;
     }
 
     pub fn toggle_mode(&mut self) {
@@ -76,6 +95,7 @@ impl Engine {
             InputMode::English    => InputMode::Vietnamese,
         };
         self.buffer.clear();
+        self.last_commit = None;
     }
 
     /// Process one key press. Returns the action the platform layer should take.
@@ -87,6 +107,11 @@ impl Engine {
         if self.mode == InputMode::English {
             return EngineOutput::Passthrough;
         }
+
+        // Any keystroke (other than the BS path in process_backspace) voids the
+        // re-edit slot — once you start a new syllable there's nothing to re-edit.
+        // During internal replay, last_commit is already None (was .take()'d).
+        self.last_commit = None;
 
         // Delimiter: commit current syllable and pass key through
         if is_delimiter(key) {
@@ -144,10 +169,26 @@ impl Engine {
     }
 
     /// Handle Backspace.
-    /// - Buffer empty → Passthrough (platform deletes previous committed char)
+    /// - Buffer empty + last_commit Some → re-edit: delete committed word+space,
+    ///   replay raw keystrokes, return to composing state.
+    /// - Buffer empty otherwise → Passthrough (platform deletes previous char)
     /// - Buffer non-empty → pop the last raw keystroke and recompute candidate
     pub fn process_backspace(&mut self) -> EngineOutput {
-        if self.mode == InputMode::English || self.buffer.is_empty() {
+        if self.mode == InputMode::English {
+            return EngineOutput::Passthrough;
+        }
+
+        if self.buffer.is_empty() {
+            // Re-edit: restore last committed syllable into the buffer.
+            if let Some(last) = self.last_commit.take() {
+                let display_len = last.display_len;
+                // Replay raw keystrokes to rebuild buffer state (candidate, tone flags, etc.)
+                for ch in last.raw.chars() {
+                    self.process_key(ch);
+                }
+                let text = self.buffer.candidate.clone();
+                return EngineOutput::Replace { delete_back: display_len, text };
+            }
             return EngineOutput::Passthrough;
         }
 
@@ -177,6 +218,14 @@ impl Engine {
     fn commit_and_passthrough(&mut self, delimiter: char) -> EngineOutput {
         let delete_back = self.buffer.candidate.chars().count();
         let committed = self.finalize_buffer();
+        // Save re-edit slot: raw keystrokes + how many chars land on screen
+        // (committed text + the delimiter itself, always 1 Unicode scalar).
+        let raw = self.buffer.commit_raw.clone();
+        self.last_commit = if raw.is_empty() {
+            None
+        } else {
+            Some(LastCommit { raw, display_len: committed.chars().count() + 1 })
+        };
         self.buffer.clear();
         let text = format!("{}{}", committed, delimiter);
         EngineOutput::Replace { delete_back, text }
@@ -190,6 +239,14 @@ impl Engine {
         }
         if self.config.is_protected(candidate) {
             return self.buffer.raw.clone();
+        }
+        // EN_DEV safety net: if Telex conversion accidentally produced a known
+        // English dev term, revert to raw. Covers edge cases where a vowel modifier
+        // or tone fired and the result happens to be a dev word.
+        if (self.buffer.had_char_sub || self.buffer.had_tone_applied)
+            && crate::freq::is_en_dev(candidate)
+        {
+            return self.buffer.commit_raw.clone();
         }
         // Validate when a tone or char_sub changed the candidate from what was typed.
         // Pure literal and double-char-only buffers skip validation (e.g. "đ" from "dd").
@@ -212,6 +269,15 @@ impl Engine {
         } else {
             new_base.clone()
         };
+
+        // Mark as char_sub when the replacement modified a vowel (e.g. ow→ơ, aa→â).
+        // This enables commit-time validity checking so invalid results like "ơl"
+        // revert to the raw form "owl".
+        // Consonant-only transforms like dd→đ must NOT set this flag: "đ" alone fails
+        // the syllable validator but is a perfectly valid word-initial consonant.
+        if candidate_has_vowel(&new_base) {
+            self.buffer.had_char_sub = true;
+        }
 
         self.buffer.push_raw(key, with_tone.clone());
         EngineOutput::Replace {
@@ -299,9 +365,16 @@ impl Engine {
         if let Some(last) = candidate.chars().last() {
             let two = format!("{}{}", last, key_str);
             if let Some(result) = self.config.double_char.get(&two) {
-                // w-based transforms only fire when buffer starts with an initial consonant.
-                // Prevents "aws"→"ắ" while "nắng" still works.
-                if key_str == "w" && !candidate_starts_with_consonant(candidate) {
+                // 'aw'→'ă' only fires when there's an initial consonant in the buffer.
+                // Prevents "aws"→"ắ" (English acronym conflict).
+                // 'ow'→'ơ' and 'uw'→'ư' are allowed without initial consonant so that
+                // standalone Vietnamese syllables like "ở" (owr), "ừ" (uwf) can be typed.
+                let two_str = two.as_str();
+                if key_str == "w"
+                    && two_str == "aw"
+                    && self.config.aw_requires_consonant
+                    && !candidate_starts_with_consonant(candidate)
+                {
                     return None;
                 }
                 let prefix = &candidate[..candidate.len() - last.len_utf8()];
@@ -316,25 +389,45 @@ impl Engine {
             }
         }
 
-        // ── Look-back: 'w' typed after a final consonant ───────────────────────
-        // Scans backward through the final consonant to find the last vowel that can
-        // pair with 'w'. Enables "dduocwj" → "được" (c is the final, o is the target vowel).
+        // ── Look-back: 'w' after a final consonant, or after a tone key ──────────
+        // Scans backward through the final consonant to find the last vowel.
+        // If the vowel is already toned (e.g. 'ọ' from a previous 'j'), strips its tone,
+        // tries the base+w match, and returns the UNTONED result — apply_replacement
+        // re-applies the current tone via extract_current_tone, placing it on the new vowel.
+        //
+        // Enables both orderings:
+        //   "dduocwj" → "được"  (w before j — primary block handles this)
+        //   "dduocjw" → "được"  (j before w — this look-back handles it)
         if key_str == "w" && candidate_starts_with_consonant(candidate) {
             let chars: Vec<(usize, char)> = candidate.char_indices().collect();
             for &(byte_pos, ch) in chars.iter().rev() {
                 if is_vowel_char(ch) {
-                    let two = format!("{}w", ch);
-                    if let Some(result) = self.config.double_char.get(&two) {
+                    // Try direct match first (vowel has no tone yet).
+                    let two_direct = format!("{}w", ch);
+                    let (result, base_is_o) =
+                        if let Some(r) = self.config.double_char.get(&two_direct).cloned() {
+                            (Some(r), ch == 'o')
+                        } else {
+                            // Strip tone and retry: allows 'w' to fire after a tone key.
+                            // Returns UNTONED transform so apply_replacement can re-tone
+                            // consistently (tone moves from old vowel to new vowel).
+                            let (base_str, _) = strip_tone(&ch.to_string());
+                            let base_ch = base_str.chars().next().unwrap_or(ch);
+                            let two_base = format!("{}w", base_ch);
+                            (self.config.double_char.get(&two_base).cloned(), base_ch == 'o')
+                        };
+
+                    if let Some(result) = result {
                         let before = &candidate[..byte_pos];
                         let after  = &candidate[byte_pos + ch.len_utf8()..];
-                        // Compound: u + ow (over final) → ươ
-                        if ch == 'o' && before.ends_with('u') {
+                        // Compound diphthong: u + ow → ươ
+                        if base_is_o && before.ends_with('u') {
                             let uw_before = &before[..before.len() - 1];
                             return Some(format!("{}ư{}{}", uw_before, result, after));
                         }
                         return Some(format!("{}{}{}", before, result, after));
                     }
-                    break; // found a vowel but no 'w' match — stop looking further
+                    break; // found a vowel but no match — stop
                 }
                 // non-vowel (final consonant) — keep scanning backwards
             }
@@ -344,6 +437,12 @@ impl Engine {
     }
 
     fn try_double_press_escape(&mut self, key: char) -> Option<EngineOutput> {
+        // Only escape when there is an actual conversion to undo.
+        // Without a prior tone or char-sub/double-char, repeated letters are plain
+        // literals — "pp" in "apple", "ll" in "hello", etc. must NOT trigger escape.
+        if !self.buffer.had_tone_applied && !self.buffer.had_char_sub {
+            return None;
+        }
         let raw_last = self.buffer.raw.chars().last()?;
         if raw_last != key {
             return None;
@@ -356,14 +455,23 @@ impl Engine {
             let (base, _) = strip_tone(&self.buffer.candidate);
             format!("{}{}", base, key)
         } else {
-            // Double-char/char-sub escape: revert to just the key, trim raw for clean BS.
+            // Double-char/char-sub escape: undo the transform and restore raw keys.
+            // Trim the triggering key from raw/commit_raw, then rebuild candidate as
+            // (remaining commit_raw) + (escape key) so the prefix is preserved.
+            //
+            // Example: "gô" (from g+o+o) + escape 'o':
+            //   commit_raw "goo" → truncated to "go"
+            //   new_candidate = "go" + "o" = "goo"    ← prefix "g" kept ✓
+            //
+            // Without this, new_candidate was just "o" and the prefix "g" was lost,
+            // causing "g+o+o+o+g+l+e" → "ogle" instead of "google".
             if let Some((last_byte, _)) = self.buffer.raw.char_indices().next_back() {
                 self.buffer.raw.truncate(last_byte);
             }
             if let Some((last_byte, _)) = self.buffer.commit_raw.char_indices().next_back() {
                 self.buffer.commit_raw.truncate(last_byte);
             }
-            key.to_string()
+            format!("{}{}", self.buffer.commit_raw, key)
         };
 
         self.buffer.candidate = new_candidate.clone();

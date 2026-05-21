@@ -32,10 +32,12 @@ pub extern "C" fn pktkey_engine_new(preset: *const c_char) -> *mut Engine {
         }
     };
     let p = match preset_str.to_lowercase().as_str() {
-        "vni"    => Preset::Vni,
-        "direct" => Preset::Direct,
-        "custom" => Preset::Custom,
-        _        => Preset::Telex,
+        "telex_original" => Preset::TelexOriginal,
+        "vni"            => Preset::Vni,
+        "viqr"           => Preset::Viqr,
+        "direct"         => Preset::Direct,
+        "custom"         => Preset::Custom,
+        _                => Preset::Telex,
     };
     Box::into_raw(Box::new(Engine::new(MappingConfig::from_preset(p))))
 }

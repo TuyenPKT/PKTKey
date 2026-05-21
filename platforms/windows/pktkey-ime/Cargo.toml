@@ -1,0 +1,25 @@
+[package]
+name = "pktkey-ime"
+version = "0.1.0"
+edition = "2021"
+
+# Standalone workspace — not part of the root PKTKey workspace.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+name = "pktkey_ime"
+
+[dependencies]
+pktkey-core = { path = "../../../crates/core" }
+
+[dependencies.windows]
+version = "0.58"
+features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Registry",
+    "Win32_UI_TextServices",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_LibraryLoader",
+]

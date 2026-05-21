@@ -16,7 +16,7 @@ static FINALS: &[&str] = &["ch", "ng", "nh", "c", "m", "n", "p", "t"];
 /// Valid vowel nuclei (nguyên âm / vần) — longest match first
 static NUCLEI: &[&str] = &[
     // Triphthongs
-    "iêu", "oai", "oao", "oay", "oeo", "uai", "uay", "uây", "ươi", "ươu", "yêu",
+    "iêu", "oai", "oao", "oay", "oeo", "uai", "uay", "uây", "uyê", "ươi", "ươu", "yêu",
     // Diphthongs
     "ai", "ao", "au", "ay", "âu", "ây",
     "eo", "êu",
