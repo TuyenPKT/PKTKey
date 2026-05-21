@@ -1,3 +1,23 @@
+# ── Rust ──────────────────────────────────────────────────────────────────────
 target/
-.claude/
+
+# ── macOS platform ────────────────────────────────────────────────────────────
+platforms/macos/PKTKeyIME/build/
+platforms/macos/PKTKeyIME/build_out/
+platforms/macos/PKTKeyIME/*.profraw
+platforms/macos/PKTKeyIME/default.profraw
+
+# ── Windows platform ──────────────────────────────────────────────────────────
+# Separate Cargo workspace — có target/ riêng
+platforms/windows/pktkey-ime/target/
+
+# ── Linux platform ────────────────────────────────────────────────────────────
+platforms/linux/*/target/
+
+# ── WASM / Web ────────────────────────────────────────────────────────────────
 web/pkg/
+
+# ── Dev tools ─────────────────────────────────────────────────────────────────
+.claude/
+*.profraw
+*.profdata
