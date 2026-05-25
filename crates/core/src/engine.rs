@@ -327,13 +327,22 @@ impl Engine {
     }
 
     fn append_literal(&mut self, key: char) -> EngineOutput {
-        let new_candidate = format!("{}{}", self.buffer.candidate, key);
         let prev_len = self.buffer.candidate.chars().count();
+
+        // Re-seat the tone when a final consonant is appended after a tone was applied.
+        // This fixes cases like "đóa"+'n' → "đoán" (tone moves from 'o' to 'a' because
+        // the final consonant makes 'a' the nucleus, not the trailing vowel).
+        let new_candidate = if self.buffer.had_tone_applied {
+            let (base, tone) = strip_tone(&self.buffer.candidate);
+            let new_base = format!("{}{}", base, key);
+            apply_tone(&new_base, tone)
+                .unwrap_or_else(|| format!("{}{}", self.buffer.candidate, key))
+        } else {
+            format!("{}{}", self.buffer.candidate, key)
+        };
+
         self.buffer.push_raw(key, new_candidate.clone());
-        EngineOutput::Replace {
-            delete_back: prev_len,
-            text: new_candidate,
-        }
+        EngineOutput::Replace { delete_back: prev_len, text: new_candidate }
     }
 
     /// Called when an uppercase letter or digit is typed.

@@ -145,9 +145,14 @@ fn find_main_vowel_index(s: &str) -> Option<usize> {
             return Some(i2); // default: first non-glide vowel
         }
 
-        // Rule 1: 'a' as coda — preceding vowel wins
+        // Rule 1: 'a' as trailing vowel (no coda) → preceding vowel wins.
+        //         But when a final consonant follows 'a', 'a' IS the nucleus → tone on 'a'.
+        //         "hoa"→o (hòa ✓)   "bia"→i (bìa ✓)   "mua"→u (múa ✓)
+        //         "oan"→a (đoán ✓)  "ian"→a             "uan"→a (đoàn ✓)
         if v2 == 'a' && v1 != 'a' {
-            return Some(i1);
+            let has_coda = chars.get(i2 + 1)
+                .map_or(false, |&c| !PLAIN.contains(&c) && !MODIFIED.contains(&c));
+            return Some(if has_coda { i2 } else { i1 });
         }
         // Rule 2: "uo" cluster — 'o' (second) is the nucleus of the "ươ" compound
         if v1 == 'u' && v2 == 'o' {
@@ -247,6 +252,29 @@ mod tests {
         // "quả" — hỏi trên 'a', không phải 'u' (u là glide của "qu")
         let result = apply_tone("qua", Tone::Hoi).unwrap();
         assert_eq!(result, "quả", "'u' sau 'q' là medial glide, tone phải trên 'a'");
+    }
+
+    // ── "?a" + final consonant: tone phải trên 'a' ──────────────────────────
+
+    #[test]
+    fn oan_sac_on_a() {
+        // "oán" — 'a' là nucleus vì có coda 'n' sau nó
+        let result = apply_tone("oan", Tone::Sac).unwrap();
+        assert_eq!(result, "oán", "coda 'n' → tone phải trên 'a', không phải 'o'");
+    }
+
+    #[test]
+    fn doan_huyen_on_a() {
+        // "đoàn" — 'a' là nucleus, 'n' là coda
+        let result = apply_tone("đoan", Tone::Huyen).unwrap();
+        assert_eq!(result, "đoàn");
+    }
+
+    #[test]
+    fn hoa_no_coda_tone_on_o() {
+        // "hóa" — không có coda → 'a' là trailing → tone trên 'o' (giữ nguyên behavior)
+        let result = apply_tone("hoa", Tone::Sac).unwrap();
+        assert_eq!(result, "hóa", "không có coda → tone trên 'o'");
     }
 
     #[test]

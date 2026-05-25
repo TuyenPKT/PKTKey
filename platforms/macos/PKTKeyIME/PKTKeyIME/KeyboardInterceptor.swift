@@ -23,6 +23,11 @@ class KeyboardInterceptor {
     private let magic: Int64 = 0x504B544B // "PKTK"
     private let candidateWindow = CandidateWindow()
 
+    /// What the IME has caused to appear on screen for the syllable being composed.
+    /// Used to compute deltas so we avoid injecting backspace events that Chrome
+    /// and some Electron apps silently discard.
+    private var screenCandidate: String = ""
+
     init() {
         let preset = Settings.shared.inputMethod
         engine = pktkey_engine_new(preset)
@@ -63,6 +68,7 @@ class KeyboardInterceptor {
 
     func resetBuffer() {
         pktkey_reset_buffer(engine)
+        screenCandidate = ""
         candidateWindow.hide()
     }
 
@@ -127,6 +133,7 @@ class KeyboardInterceptor {
         // Navigation / editing keys: reset buffer, pass through
         if resetKeyCodes.contains(keyCode) {
             pktkey_reset_buffer(engine)
+            screenCandidate = ""
             candidateWindow.hide()
             return Unmanaged.passRetained(event)
         }
@@ -140,10 +147,12 @@ class KeyboardInterceptor {
             }
             defer { freeText(&out) }
             if out.output_type == PKTKEY_PASSTHROUGH {
+                screenCandidate = ""
                 return Unmanaged.passRetained(event)
             }
             let text = out.text.map { String(cString: $0) } ?? ""
             let del = Int(out.delete_back)
+            screenCandidate = text   // backspace always uses full replace path
             if del > 0 { postBackspace(del) }
             if !text.isEmpty { postText(text) }
             return nil
@@ -175,7 +184,8 @@ class KeyboardInterceptor {
             let delCount = Int(pktkey_candidate_len(engine))
             pktkey_reset_buffer(engine)
             candidateWindow.hide()
-            if delCount > 0 { postBackspace(delCount) }
+            let dbs = delCount + (frontAppReceivesHIDCopy ? 1 : 0)
+            if dbs > 0 { postBackspace(dbs) }
             postText(selected)
             return nil
         }
@@ -191,11 +201,28 @@ class KeyboardInterceptor {
         }
 
         let text = out.text.map { String(cString: $0) } ?? ""
-        let del = Int(out.delete_back)
-        if del > 0 { postBackspace(del) }
-        if !text.isEmpty { postText(text) }
+        let del  = Int(out.delete_back)
+        let isDelim = " \n\r\t.,!?;:".contains(chars)
+        defer { if isDelim { screenCandidate = "" } }
 
-        // ── Update candidate popup ──────────────────────────────────────────
+        // ── Passthrough: engine just appended the typed char ──────────────
+        // When the new candidate == what's already on screen + the typed key,
+        // no injection is needed — the original key event already carries the
+        // right character.  Injecting a copy would cause doubles in Chrome and
+        // Electron apps whose renderers receive raw HID events independently of
+        // CGEventTap suppression.
+        if text == screenCandidate + chars {
+            screenCandidate = text
+            updateCandidates(near: event)
+            return Unmanaged.passRetained(event)
+        }
+
+        // ── Replacement: actual conversion (tone / double-char / revert) ──
+        print("PKTKey ▶ replace | sc=\(screenCandidate.debugDescription) chars=\(chars.debugDescription) text=\(text.debugDescription) del=\(del)")
+        screenCandidate = text
+        let bsCount = del + (frontAppReceivesHIDCopy ? 1 : 0)
+        if bsCount > 0 { postBackspace(bsCount) }
+        if !text.isEmpty { postText(text) }
         updateCandidates(near: event)
         return nil
     }
@@ -222,6 +249,22 @@ class KeyboardInterceptor {
         DispatchQueue.main.async { [weak self] in
             self?.candidateWindow.show(candidates: words, near: mouse)
         }
+    }
+
+    // MARK: - App detection
+
+    /// True when the frontmost app's renderer receives key events directly via
+    /// the HID pipeline, bypassing CGEventTap suppression (return nil).
+    /// Chrome-based and most Electron apps do this; native Cocoa apps do not.
+    private var frontAppReceivesHIDCopy: Bool {
+        let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+        return bid.hasPrefix("com.google.Chrome")
+            || bid.hasPrefix("com.microsoft.edgemac")
+            || bid.hasPrefix("com.brave.Browser")
+            || bid.hasPrefix("com.operasoftware.Opera")
+            || bid.hasPrefix("com.naver.whale")
+            || bid.hasPrefix("com.vivaldi.Vivaldi")
+            || bid.contains("Electron")      // catches VS Code, Slack, Notion, etc.
     }
 
     // MARK: - Event injection

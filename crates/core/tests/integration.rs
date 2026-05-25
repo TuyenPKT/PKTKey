@@ -503,6 +503,37 @@ fn google_not_mangled() {
     assert_eq!(result, "google ");
 }
 
+// ── "?a" + coda: tone trên 'a' khi có consonant cuối ─────────────────────
+
+#[test]
+fn doan_tone_before_coda() {
+    // "ddoasn " → "đoán " — tone 's' gõ trước coda 'n'
+    // Sau khi thêm 'n', engine re-apply tone: "đóa"+'n' → "đoán"
+    let result = type_sequence(&mut telex(), "ddoasn ");
+    assert_eq!(result, "đoán ");
+}
+
+#[test]
+fn doan_tone_after_coda() {
+    // "ddoans " → "đoán " — tone 's' gõ sau coda 'n' (thứ tự khác, kết quả như nhau)
+    let result = type_sequence(&mut telex(), "ddoans ");
+    assert_eq!(result, "đoán ");
+}
+
+#[test]
+fn doan_huyen_gives_doan() {
+    // "ddoanf " → "đoàn " (đoàn = nhóm/đội)
+    let result = type_sequence(&mut telex(), "ddoanf ");
+    assert_eq!(result, "đoàn ");
+}
+
+#[test]
+fn hoa_sac_no_coda_tone_on_o() {
+    // "hoas " → "hóa " — không có coda → tone vẫn trên 'o' (giữ nguyên behavior)
+    let result = type_sequence(&mut telex(), "hoas ");
+    assert_eq!(result, "hóa ");
+}
+
 // ── Double-char escape preserves prefix (g+o+o+o → "goo" not "o") ────────
 
 #[test]
