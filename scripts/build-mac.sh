@@ -12,7 +12,8 @@ APP_NAME="PKTKeyIME"
 XCODE_PROJECT="platforms/macos/$APP_NAME/$APP_NAME.xcodeproj"
 DERIVED_DATA="platforms/macos/$APP_NAME/build"
 RELEASE_APP="$DERIVED_DATA/Build/Products/Release/$APP_NAME.app"
-DEST_APP="$HOME/Desktop/$APP_NAME.app"
+# Cài vào /Applications để SMAppService (launch at login) hoạt động đúng
+DEST_APP="/Applications/$APP_NAME.app"
 
 # ── 1. Build Rust C API (capi sẽ được embed vào Xcode target) ─────────────
 echo "▶ cargo build pktkey-capi (release)..."
@@ -38,5 +39,6 @@ cp -R "$RELEASE_APP" "$DEST_APP"
 open "$DEST_APP"
 
 echo ""
-echo "✅ Done. PKTKeyIME running on Desktop."
+echo "✅ Done. PKTKeyIME installed to /Applications."
 echo "   Nếu hỏi Accessibility permission → System Settings > Privacy & Security > Accessibility → bật."
+echo "   Launch at login: bật trong Settings window của app."

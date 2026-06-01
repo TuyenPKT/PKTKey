@@ -8,17 +8,18 @@ final class SettingsWindowController: NSWindowController {
     // MARK: - State
     private var inputMethodPopup  = NSPopUpButton()
     private var toggleKeyPopup    = NSPopUpButton()
-    private var viCheckbox        = NSButton()
-    private var quickTypeCheckbox = NSButton()
-    private var autoRevertCheckbox = NSButton()
-    private var notifCheckbox     = NSButton()
+    private var viCheckbox          = NSButton()
+    private var quickTypeCheckbox   = NSButton()
+    private var autoRevertCheckbox  = NSButton()
+    private var notifCheckbox       = NSButton()
+    private var launchAtLoginCheckbox = NSButton()
     private var modeButton        = NSButton()
     private var tryTextField      = NSTextField()
 
     // MARK: - Init
     private init() {
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 780, height: 520),
+            contentRect: NSRect(x: 0, y: 0, width: 780, height: 620),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
@@ -192,12 +193,13 @@ final class SettingsWindowController: NSWindowController {
         optLabel.textColor = .secondaryLabelColor
         stack.addArrangedSubview(optLabel)
 
-        viCheckbox        = makeCheckbox("Gõ tiếng Việt",     action: #selector(viCheckboxChanged))
-        quickTypeCheckbox = makeCheckbox("Gõ tắt",            action: #selector(quickTypeChanged))
-        autoRevertCheckbox = makeCheckbox("Tự động khôi phục phím với từ sai", action: #selector(autoRevertChanged))
-        notifCheckbox     = makeCheckbox("Hiện thông báo",    action: #selector(notifChanged))
+        viCheckbox           = makeCheckbox("Gõ tiếng Việt",                    action: #selector(viCheckboxChanged))
+        quickTypeCheckbox    = makeCheckbox("Gõ tắt",                           action: #selector(quickTypeChanged))
+        autoRevertCheckbox   = makeCheckbox("Tự động khôi phục phím với từ sai", action: #selector(autoRevertChanged))
+        notifCheckbox        = makeCheckbox("Hiện thông báo",                   action: #selector(notifChanged))
+        launchAtLoginCheckbox = makeCheckbox("Tự khởi động cùng hệ thống",     action: #selector(launchAtLoginChanged))
 
-        for cb in [viCheckbox, quickTypeCheckbox, autoRevertCheckbox, notifCheckbox] {
+        for cb in [viCheckbox, quickTypeCheckbox, autoRevertCheckbox, notifCheckbox, launchAtLoginCheckbox] {
             stack.addArrangedSubview(cb)
         }
 
@@ -382,10 +384,11 @@ final class SettingsWindowController: NSWindowController {
         let methods: [String: Int] = ["telex": 0, "telex_original": 1, "vni": 2, "viqr": 3]
         inputMethodPopup.selectItem(at: methods[s.inputMethod] ?? 0)
 
-        viCheckbox.state        = s.isVietnamese ? .on : .off
-        quickTypeCheckbox.state = s.quickType    ? .on : .off
-        autoRevertCheckbox.state = s.autoRevert  ? .on : .off
-        notifCheckbox.state     = s.showNotif    ? .on : .off
+        viCheckbox.state          = s.isVietnamese    ? .on : .off
+        quickTypeCheckbox.state   = s.quickType       ? .on : .off
+        autoRevertCheckbox.state  = s.autoRevert      ? .on : .off
+        notifCheckbox.state       = s.showNotif       ? .on : .off
+        launchAtLoginCheckbox.state = s.launchAtLogin ? .on : .off
 
         updateModeButtonTitle()
     }
@@ -420,6 +423,12 @@ final class SettingsWindowController: NSWindowController {
 
     @objc private func notifChanged() {
         Settings.shared.showNotif = notifCheckbox.state == .on
+    }
+
+    @objc private func launchAtLoginChanged() {
+        Settings.shared.launchAtLogin = launchAtLoginCheckbox.state == .on
+        // Re-read actual state in case SMAppService rejected the change
+        launchAtLoginCheckbox.state = Settings.shared.launchAtLogin ? .on : .off
     }
 
     @objc private func toggleMode() {

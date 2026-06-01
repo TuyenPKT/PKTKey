@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 
 /// Persisted user preferences backed by UserDefaults.
 final class Settings {
@@ -44,5 +45,22 @@ final class Settings {
     var quickType: Bool {
         get { UserDefaults.standard.object(forKey: Key.quickType) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: Key.quickType) }
+    }
+
+    /// Launch PKTKey automatically at login (backed by SMAppService, not UserDefaults)
+    var launchAtLogin: Bool {
+        get { SMAppService.mainApp.status == .enabled }
+        set {
+            do {
+                if newValue {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+                print("PKTKey: launchAtLogin=\(newValue) status=\(SMAppService.mainApp.status)")
+            } catch {
+                print("PKTKey: launchAtLogin error — \(error.localizedDescription)")
+            }
+        }
     }
 }
