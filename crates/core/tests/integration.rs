@@ -210,9 +210,9 @@ fn w_is_literal_in_telex() {
 
 #[test]
 fn bracket_is_literal() {
-    // ']' and '[' are no longer char_sub — type as-is
-    let result = type_sequence(&mut telex(), "] ");
-    assert_eq!(result, "] ");
+    // '[' and ']' are delimiters — committed immediately with no char_sub transform
+    let result = type_sequence(&mut telex(), "a]");
+    assert_eq!(result, "a]");
 }
 
 // ── Backspace ──────────────────────────────────────────────────────────────
@@ -226,9 +226,9 @@ fn backspace_reverts_w_to_nothing() {
 
 #[test]
 fn backspace_reverts_double_char() {
-    // aa→â, Backspace → a, then space commits "a"
+    // aa→â (1 visual char), one Backspace deletes whole â → "", then space
     let result = type_with_bs(&mut telex(), "aa\x08 ");
-    assert_eq!(result, "a ");
+    assert_eq!(result, " ");
 }
 
 #[test]
@@ -349,9 +349,32 @@ fn best_via_escape() {
 
 #[test]
 fn uppercase_word_not_converted() {
-    // 'W' triggers technical mode → whole word committed as-is
+    // 'W' alone does not immediately lock technical mode (capitalised Vietnamese word
+    // support), but the foreign word "Windows" contains 'ow'→'ơ' char_sub which makes
+    // the syllable invalid → auto-reverts to raw "Windows" at commit.
     let result = type_sequence(&mut telex(), "Windows ");
     assert_eq!(result, "Windows ");
+}
+
+#[test]
+fn van_capitalised() {
+    // V+a+n+w → "Văn" (aw lookback fires; first uppercase defers technical mode)
+    let result = type_sequence(&mut telex(), "Vanw ");
+    assert_eq!(result, "Văn ");
+}
+
+#[test]
+fn ha_noi_capitalised() {
+    // "Haf" → "Hà" — capitalised Vietnamese words use Telex tone
+    let result = type_sequence(&mut telex(), "Haf ");
+    assert_eq!(result, "Hà ");
+}
+
+#[test]
+fn api_stays_technical() {
+    // 'A' alone defers technical; 'P' (2nd uppercase) triggers technical → "API" literal
+    let result = type_sequence(&mut telex(), "API ");
+    assert_eq!(result, "API ");
 }
 
 #[test]

@@ -123,7 +123,16 @@ impl Engine {
         if self.buffer.is_technical {
             return self.append_literal(key);
         }
-        if key.is_uppercase() || key.is_ascii_digit() {
+        if key.is_ascii_digit() {
+            return self.start_technical_token(key);
+        }
+        if key.is_uppercase() {
+            // A leading uppercase on an empty buffer is a capitalised Vietnamese word
+            // (Văn, Hà, Nguyễn…) — defer technical mode until the SECOND uppercase
+            // letter arrives (which signals an acronym: API, HTTP, …).
+            if self.buffer.is_empty() {
+                return self.append_literal(key);
+            }
             return self.start_technical_token(key);
         }
 
@@ -193,23 +202,29 @@ impl Engine {
         }
 
         let prev_candidate_len = self.buffer.candidate.chars().count();
-
-        // Collect all raw keys except the last one
         let raw_chars: Vec<char> = self.buffer.raw.chars().collect();
-        let replay: Vec<char> = raw_chars[..raw_chars.len() - 1].to_vec();
 
-        // Reset buffer and replay remaining keys to rebuild candidate
-        self.buffer.clear();
-        let mut last_text = String::new();
-        for ch in replay {
-            if let EngineOutput::Replace { text, .. } = self.process_key(ch) {
-                last_text = text;
+        // Pop raw keystrokes one at a time until the visual character count drops.
+        // For single-visual-char buffers (á, ể, ư, â, đ…) this means we keep
+        // popping until the candidate is empty — one Backspace deletes the whole
+        // diacritic character.  For multi-char buffers we stop after one pop
+        // (Unikey-style: removes the last modifier/tone key, allowing partial undo).
+        let mut drop = 1usize;
+        loop {
+            let keep = raw_chars.len().saturating_sub(drop);
+            let replay = &raw_chars[..keep];
+            self.buffer.clear();
+            let mut last_text = String::new();
+            for &ch in replay {
+                if let EngineOutput::Replace { text, .. } = self.process_key(ch) {
+                    last_text = text;
+                }
             }
-        }
-
-        EngineOutput::Replace {
-            delete_back: prev_candidate_len,
-            text: last_text,
+            let new_len = self.buffer.candidate.chars().count();
+            if new_len < prev_candidate_len || replay.is_empty() || prev_candidate_len > 1 {
+                return EngineOutput::Replace { delete_back: prev_candidate_len, text: last_text };
+            }
+            drop += 1;
         }
     }
 
@@ -293,14 +308,20 @@ impl Engine {
         if self.buffer.is_empty() {
             return self.append_literal(key);
         }
+        // Buffer has consonants only — tone cannot apply without a vowel nucleus.
+        // Treat as literal so "ssh" stays "ssh" instead of clearing the buffer.
+        if !candidate_has_vowel(&self.buffer.candidate) {
+            return self.append_literal(key);
+        }
         let (_, base_candidate) = self.extract_current_tone();
         let with_tone = apply_tone(&base_candidate, tone)
             .unwrap_or_else(|| base_candidate.clone());
 
         if !is_valid_syllable(&with_tone) {
-            // Clear buffer so screen and engine stay in sync (prevents "ttong" bug).
-            self.buffer.clear();
-            return EngineOutput::Passthrough;
+            // Toned result is not a valid Vietnamese syllable (e.g. foreign word
+            // like "Windơ"+'s' → "Windớ").  Append the tone key as a literal so
+            // the buffer stays intact and auto-revert at commit restores raw text.
+            return self.append_literal(key);
         }
 
         let prev_len = self.buffer.candidate.chars().count();
@@ -502,7 +523,15 @@ impl Engine {
 }
 
 fn is_delimiter(c: char) -> bool {
-    matches!(c, ' ' | '\n' | '\r' | '\t' | '.' | ',' | '!' | '?' | ';' | ':')
+    matches!(
+        c,
+        ' ' | '\n' | '\r' | '\t'
+        | '.' | ',' | '!' | '?' | ';' | ':'
+        | '/' | '-' | '(' | ')' | '[' | ']' | '{' | '}'
+        | '"' | '\'' | '`'
+        | '@' | '#' | '$' | '%' | '^' | '&' | '*'
+        | '+' | '=' | '<' | '>' | '|' | '\\'
+    )
 }
 
 /// Returns true if the candidate's first character is a Vietnamese initial consonant
@@ -633,39 +662,53 @@ mod tests {
 
     #[test]
     fn fix_stays_fix() {
-        // 'f' → literal "f"; 'i' → "fi"; 'x' (ngã) on "fi" → is_valid("fĩ") false
-        // ('f' is not a Vietnamese initial consonant) → buffer clears, Passthrough
+        // 'f'+'i'+'x': 'x' (ngã) on "fi" → "fĩ" invalid → append 'x' as literal → "fix"
+        // The invalid tone key becomes a literal so auto-revert at commit handles it.
         let mut e = telex_engine();
         e.process_key('f');
         e.process_key('i');
         let out = e.process_key('x');
-        assert_eq!(out, EngineOutput::Passthrough);
+        assert_eq!(out, EngineOutput::Replace { delete_back: 2, text: "fix".to_string() });
     }
 
     #[test]
-    fn trong_tone_on_consonant_clears_buffer() {
-        // 't' then 'r' (hỏi) fails — buffer must clear so 'o' starts with delete_back=0
+    fn tone_key_after_consonant_is_literal() {
+        // 't' + 'r' (hỏi tone key) with no vowel yet → 'r' is treated as literal,
+        // giving consonant cluster "tr". Then 'o' correctly gives "tro".
         let mut e = telex_engine();
         e.process_key('t');
         let tone_out = e.process_key('r');
-        assert_eq!(tone_out, EngineOutput::Passthrough);
+        assert_eq!(tone_out, EngineOutput::Replace { delete_back: 1, text: "tr".to_string() });
         let o_out = e.process_key('o');
         match o_out {
-            EngineOutput::Replace { delete_back, .. } => assert_eq!(delete_back, 0),
+            EngineOutput::Replace { delete_back, text } => {
+                assert_eq!(delete_back, 2);
+                assert_eq!(text, "tro");
+            }
             other => panic!("expected Replace, got {:?}", other),
         }
     }
 
     #[test]
-    fn backspace_pops_to_previous_candidate() {
-        // "a" → "a"; "a" → "â"; Backspace → back to "a"
+    fn ssh_stays_ssh() {
+        // "ss" in Telex must NOT erase one 's' when followed by 'h'.
+        // Previously, the second 's' (sắc tone) cleared the buffer → "ssh" became "sh".
+        let mut e = telex_engine();
+        e.process_key('s');
+        let s2 = e.process_key('s');
+        // second 's': buffer "s" has no vowel → literal → "ss"
+        assert_eq!(s2, EngineOutput::Replace { delete_back: 1, text: "ss".to_string() });
+        let h = e.process_key('h');
+        assert_eq!(h, EngineOutput::Replace { delete_back: 2, text: "ssh".to_string() });
+    }
+
+    #[test]
+    fn backspace_deletes_single_diacritic() {
+        // "aa" → "â" (1 visual char); one Backspace deletes the whole thing → ""
         let mut e = telex_engine();
         e.process_key('a');
         e.process_key('a'); // now "â"
         let out = e.process_backspace();
-        match out {
-            EngineOutput::Replace { text, .. } => assert_eq!(text, "a"),
-            other => panic!("expected Replace, got {:?}", other),
-        }
+        assert_eq!(out, EngineOutput::Replace { delete_back: 1, text: "".into() });
     }
 }

@@ -74,6 +74,8 @@ class KeyboardInterceptor {
 
     func toggleMode() {
         pktkey_toggle_mode(engine)
+        screenCandidate = ""
+        candidateWindow.hide()
         let modePtr = pktkey_get_mode(engine)
         let mode = modePtr.map { String(cString: $0) } ?? "vi"
         pktkey_free_string(modePtr)
@@ -184,11 +186,18 @@ class KeyboardInterceptor {
             let delCount = Int(pktkey_candidate_len(engine))
             pktkey_reset_buffer(engine)
             candidateWindow.hide()
-            let dbs = delCount + (frontAppReceivesHIDCopy ? 1 : 0)
-            if dbs > 0 { postBackspace(dbs) }
+            screenCandidate = ""
+            // passthrough digit + delete word (delCount) + digit (1) + inject selection
+            postBackspace(delCount + 1)
             postText(selected)
-            return nil
+            return Unmanaged.passRetained(event)
         }
+
+        // Reset screenCandidate on delimiter REGARDLESS of engine output path
+        // (Passthrough in English mode, commit in Vietnamese, etc.) so that
+        // a stale candidate never causes over-deletion into preceding text.
+        let isDelim = " \n\r\t.,!?;:/-()[]{}\"'`@#$%^&*+=<>|\\".contains(chars)
+        defer { if isDelim { screenCandidate = "" } }
 
         var out = PKTKeyOutput()
         let handled = chars.withCString { pktkey_process_key(engine, $0, &out) }
@@ -196,14 +205,15 @@ class KeyboardInterceptor {
         defer { freeText(&out) }
 
         if out.output_type == PKTKEY_PASSTHROUGH {
+            // Engine cleared its buffer (invalid tone on vowel) or English mode.
+            // Stale screenCandidate would cause over-deletion on the next keystroke.
+            screenCandidate = ""
             candidateWindow.hide()
             return Unmanaged.passRetained(event)
         }
 
         let text = out.text.map { String(cString: $0) } ?? ""
         let del  = Int(out.delete_back)
-        let isDelim = " \n\r\t.,!?;:".contains(chars)
-        defer { if isDelim { screenCandidate = "" } }
 
         // ── Passthrough: engine just appended the typed char ──────────────
         // When the new candidate == what's already on screen + the typed key,
@@ -218,13 +228,27 @@ class KeyboardInterceptor {
         }
 
         // ── Replacement: actual conversion (tone / double-char / revert) ──
-        print("PKTKey ▶ replace | sc=\(screenCandidate.debugDescription) chars=\(chars.debugDescription) text=\(text.debugDescription) del=\(del)")
+        // Always pass the original event through so the renderer sees it once.
+        // Then inject the minimal delta: compare (screenCandidate + chars) with
+        // the new text, delete only the non-matching suffix, and insert the new
+        // suffix.  This avoids over-deleting into preceding words/spaces — the
+        // root cause of bugs in Chrome/Safari sandboxed renderers.
+        let oldOnScreen = screenCandidate + chars
         screenCandidate = text
-        let bsCount = del + (frontAppReceivesHIDCopy ? 1 : 0)
-        if bsCount > 0 { postBackspace(bsCount) }
-        if !text.isEmpty { postText(text) }
+
+        let oldChars = Array(oldOnScreen)
+        let newChars = Array(text)
+        var prefix = 0
+        while prefix < oldChars.count && prefix < newChars.count && oldChars[prefix] == newChars[prefix] {
+            prefix += 1
+        }
+        let bsDelta = oldChars.count - prefix
+        let newSuffix = String(newChars[prefix...])
+
+        if bsDelta > 0 { postBackspace(bsDelta) }
+        if !newSuffix.isEmpty { postText(newSuffix) }
         updateCandidates(near: event)
-        return nil
+        return Unmanaged.passRetained(event)
     }
 
     // MARK: - Candidates
@@ -249,22 +273,6 @@ class KeyboardInterceptor {
         DispatchQueue.main.async { [weak self] in
             self?.candidateWindow.show(candidates: words, near: mouse)
         }
-    }
-
-    // MARK: - App detection
-
-    /// True when the frontmost app's renderer receives key events directly via
-    /// the HID pipeline, bypassing CGEventTap suppression (return nil).
-    /// Chrome-based and most Electron apps do this; native Cocoa apps do not.
-    private var frontAppReceivesHIDCopy: Bool {
-        let bid = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
-        return bid.hasPrefix("com.google.Chrome")
-            || bid.hasPrefix("com.microsoft.edgemac")
-            || bid.hasPrefix("com.brave.Browser")
-            || bid.hasPrefix("com.operasoftware.Opera")
-            || bid.hasPrefix("com.naver.whale")
-            || bid.hasPrefix("com.vivaldi.Vivaldi")
-            || bid.contains("Electron")      // catches VS Code, Slack, Notion, etc.
     }
 
     // MARK: - Event injection
