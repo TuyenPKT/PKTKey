@@ -432,6 +432,21 @@ fn nuoc_gives_nuoc_sac() {
     assert_eq!(result, "đước ");
 }
 
+#[test]
+fn duoc_skip_w_tone_after_coda() {
+    // "dduocj" → "được": user skips 'w' modifier, types tone after final consonant.
+    // "uo"+coda is promoted to "ươ"+coda automatically when a tone key fires.
+    let result = type_sequence(&mut telex(), "dduocj ");
+    assert_eq!(result, "được ");
+}
+
+#[test]
+fn duong_skip_w_huyen() {
+    // "ddưongf" → "đường": same uo-promotion for "ng" coda + huyền tone
+    let result = type_sequence(&mut telex(), "dduongf ");
+    assert_eq!(result, "đường ");
+}
+
 // ── Re-edit: backspace past space to continue composing ───────────────────
 
 #[test]

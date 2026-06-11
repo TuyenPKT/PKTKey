@@ -84,7 +84,8 @@ class KeyboardInterceptor {
     }
 
     func start() {
-        let mask: CGEventMask = 1 << CGEventType.keyDown.rawValue
+        let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+                              | (1 << CGEventType.leftMouseDown.rawValue)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         let cb: CGEventTapCallBack = { _, _, ev, rc in
             guard let rc else { return Unmanaged.passRetained(ev) }
@@ -115,6 +116,15 @@ class KeyboardInterceptor {
     private func handle(event: CGEvent) -> Unmanaged<CGEvent>? {
         // Pass through events we generated
         if event.getIntegerValueField(.eventSourceUserData) == magic {
+            return Unmanaged.passRetained(event)
+        }
+
+        // Mouse click: cursor/selection changed externally — buffer state is now stale.
+        // Reset so the next backspace passes through and lets the app handle the selection.
+        if event.type == .leftMouseDown {
+            pktkey_reset_buffer(engine)
+            screenCandidate = ""
+            candidateWindow.hide()
             return Unmanaged.passRetained(event)
         }
 

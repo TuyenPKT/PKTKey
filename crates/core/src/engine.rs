@@ -314,7 +314,14 @@ impl Engine {
             return self.append_literal(key);
         }
         let (_, base_candidate) = self.extract_current_tone();
-        let with_tone = apply_tone(&base_candidate, tone)
+        // In Vietnamese, "uo" in a closed syllable is always spelled "ươ".
+        // Promote "uo"+coda → "ươ"+coda so that e.g. "duocj" → "dược" instead
+        // of "duọc".  Only fires when candidate has plain ASCII "uo" before a
+        // final consonant; already-promoted "ươ" passes through unchanged.
+        let toned_candidate = promote_uo_closed(&base_candidate)
+            .unwrap_or_else(|| base_candidate.clone());
+        let with_tone = apply_tone(&toned_candidate, tone)
+            .or_else(|| apply_tone(&base_candidate, tone))
             .unwrap_or_else(|| base_candidate.clone());
 
         if !is_valid_syllable(&with_tone) {
@@ -443,8 +450,15 @@ impl Engine {
                             // consistently (tone moves from old vowel to new vowel).
                             let (base_str, _) = strip_tone(&ch.to_string());
                             let base_ch = base_str.chars().next().unwrap_or(ch);
-                            let two_base = format!("{}w", base_ch);
-                            (self.config.double_char.get(&two_base).cloned(), base_ch == 'o')
+                            // Also reverse shape modifiers: 'ơ' came from "ow", 'ư' from
+                            // "uw", 'ă' from "aw" — use the ASCII base for the map lookup.
+                            // This lets the look-back fire even when the vowel was already
+                            // promoted (e.g. candidate "được" has 'ợ' → needs "ow" lookup).
+                            let lookup_ch = match base_ch {
+                                'ơ' => 'o', 'ư' => 'u', 'ă' => 'a', c => c,
+                            };
+                            let two_base = format!("{}w", lookup_ch);
+                            (self.config.double_char.get(&two_base).cloned(), lookup_ch == 'o')
                         };
 
                     if let Some(result) = result {
@@ -583,6 +597,28 @@ fn candidate_has_vowel(s: &str) -> bool {
     s.chars().any(is_vowel_char)
 }
 
+/// In Vietnamese, "uo" in a CLOSED syllable (before a final consonant) is
+/// always spelled "ươ" (both vowels carry the horn modifier).  When a tone
+/// key fires on a candidate like "duoc", replace "uo" → "ươ" so that
+/// "duocj" produces "dược" rather than "duọc".
+///
+/// Returns None when no "uo"+coda pattern is found (no change needed).
+fn promote_uo_closed(candidate: &str) -> Option<String> {
+    const CODA: &[&str] = &["ch", "ng", "nh", "c", "m", "n", "p", "t"];
+    for fin in CODA {
+        if candidate.ends_with(fin) {
+            let stem = &candidate[..candidate.len() - fin.len()];
+            if stem.ends_with("uo") {
+                // 'u' and 'o' are single ASCII bytes — safe to slice by len
+                let before = &stem[..stem.len() - 2];
+                return Some(format!("{}ươ{}", before, fin));
+            }
+            break; // matched a coda but no "uo" stem → nothing to promote
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,6 +736,21 @@ mod tests {
         assert_eq!(s2, EngineOutput::Replace { delete_back: 1, text: "ss".to_string() });
         let h = e.process_key('h');
         assert_eq!(h, EngineOutput::Replace { delete_back: 2, text: "ssh".to_string() });
+    }
+
+    #[test]
+    fn uo_closed_promotes_on_tone() {
+        // "duoc" + 'j' (nặng): "uo" before coda 'c' → promote to "ươ" → "dược"
+        let mut e = telex_engine();
+        e.process_key('d');
+        e.process_key('u');
+        e.process_key('o');
+        e.process_key('c');
+        let out = e.process_key('j');
+        match out {
+            EngineOutput::Replace { text, .. } => assert_eq!(text, "dược"),
+            other => panic!("expected Replace, got {:?}", other),
+        }
     }
 
     #[test]
