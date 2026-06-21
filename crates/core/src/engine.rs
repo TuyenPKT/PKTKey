@@ -357,6 +357,32 @@ impl Engine {
     fn append_literal(&mut self, key: char) -> EngineOutput {
         let prev_len = self.buffer.candidate.chars().count();
 
+        // ── Dead-end revert: English word detected mid-typing ───────────────
+        // If a Vietnamese transform already fired (e.g. "dow"→"dơ") and we are now
+        // appending a consonant that makes the candidate structurally impossible
+        // as a Vietnamese syllable ("dơn"+'l' → "dơnl"), the word is English.
+        // Revert to the raw keystrokes immediately and switch to technical mode so
+        // the rest of the word stays literal — fixes "download" showing "dơnload".
+        let is_consonant = key.is_ascii_alphabetic() && !is_vowel_char(key);
+        if is_consonant
+            && (self.buffer.had_char_sub || self.buffer.had_tone_applied)
+            && candidate_has_vowel(&self.buffer.candidate)
+        {
+            let tentative = format!("{}{}", self.buffer.candidate, key);
+            if !is_valid_syllable(&tentative) {
+                let new_text = format!("{}{}", self.buffer.commit_raw, key);
+                self.buffer.is_technical = true;
+                self.buffer.had_char_sub = false;
+                self.buffer.had_tone_applied = false;
+                self.buffer.raw = new_text.clone();
+                self.buffer.commit_raw = new_text.clone();
+                self.buffer.candidate = new_text.clone();
+                self.buffer.last_key = Some(key);
+                self.buffer.last_key_count = 1;
+                return EngineOutput::Replace { delete_back: prev_len, text: new_text };
+            }
+        }
+
         // Re-seat the tone when a final consonant is appended after a tone was applied.
         // This fixes cases like "đóa"+'n' → "đoán" (tone moves from 'o' to 'a' because
         // the final consonant makes 'a' the nucleus, not the trailing vowel).

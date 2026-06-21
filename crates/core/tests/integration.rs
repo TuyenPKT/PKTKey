@@ -605,3 +605,11 @@ fn xin_chao_phrase() {
     // "xin " + "chao " — "chao" is valid (ch+ao)
     assert_eq!(out, "xin chao ");
 }
+
+#[test]
+fn download_stays_english() {
+    // "download": 'w' fires "ow"→"ơ" giving "dơ", but appending 'l' after coda 'n'
+    // ("dơnl") is structurally impossible → revert to raw English mid-typing.
+    let result = type_sequence(&mut telex(), "download ");
+    assert_eq!(result, "download ");
+}
