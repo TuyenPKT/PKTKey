@@ -11,12 +11,15 @@ mod register;
 
 use std::sync::atomic::{AtomicI32, Ordering};
 use windows::{
-    core::{GUID, HRESULT},
+    core::{Interface, GUID, HRESULT},
     Win32::{
         Foundation::{E_POINTER, HINSTANCE, S_FALSE, S_OK},
-        System::Com::{CLASS_E_CLASSNOTAVAILABLE, IClassFactory},
+        System::Com::IClassFactory,
     },
 };
+
+// 0x80040111 — not re-exported in windows 0.58 Win32::System::Com
+const CLASS_E_CLASSNOTAVAILABLE: HRESULT = HRESULT(0x80040111_u32 as i32);
 
 // ── GUIDs ──────────────────────────────────────────────────────────────────
 
@@ -39,14 +42,20 @@ pub const GUID_PROFILE: GUID = GUID {
 
 // ── Global module handle & ref counts ─────────────────────────────────────
 
-static DLL_MODULE: std::sync::OnceLock<HINSTANCE> = std::sync::OnceLock::new();
+struct SyncHINSTANCE(HINSTANCE);
+// SAFETY: HINSTANCE is a process-global constant set once in DllMain before
+// any other thread can call DllGetClassObject. Never mutated after that.
+unsafe impl Sync for SyncHINSTANCE {}
+unsafe impl Send for SyncHINSTANCE {}
+
+static DLL_MODULE: std::sync::OnceLock<SyncHINSTANCE> = std::sync::OnceLock::new();
 /// Number of active COM objects created by this DLL.
 pub static OBJ_COUNT: AtomicI32 = AtomicI32::new(0);
 /// Number of LockServer(TRUE) calls outstanding.
 pub static LOCK_COUNT: AtomicI32 = AtomicI32::new(0);
 
 pub fn dll_module() -> HINSTANCE {
-    *DLL_MODULE.get().expect("DLL module handle not set")
+    DLL_MODULE.get().expect("DLL module handle not set").0
 }
 
 // ── DLL entry points ───────────────────────────────────────────────────────
@@ -59,7 +68,7 @@ extern "system" fn DllMain(
 ) -> bool {
     const DLL_PROCESS_ATTACH: u32 = 1;
     if reason == DLL_PROCESS_ATTACH {
-        let _ = DLL_MODULE.set(hinstance);
+        let _ = DLL_MODULE.set(SyncHINSTANCE(hinstance));
     }
     true
 }

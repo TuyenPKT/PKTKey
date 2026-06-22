@@ -3,16 +3,17 @@
 //! OnTestKeyDown: preview — return TRUE to claim keys we may want to handle.
 //! OnKeyDown:     actually process the key; return TRUE = consumed, FALSE = pass through.
 
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use pktkey_core::{EngineOutput, InputMode};
 use windows::{
     core::{implement, Result, GUID},
     Win32::{
-        Foundation::{BOOL, E_FAIL, S_OK},
+        Foundation::{BOOL, E_FAIL},
         UI::{
             Input::KeyboardAndMouse::{
-                GetKeyState, VK_BACK, VK_CAPITAL, VK_CONTROL, VK_SHIFT, VK_SPACE,
+                GetKeyState, VK_BACK, VK_CAPITAL, VK_CONTROL, VK_MENU, VK_SHIFT, VK_SPACE,
             },
             TextServices::{
                 ITfContext, ITfEditSession, ITfKeyEventSink_Impl, TF_ES_READWRITE, TF_ES_SYNC,
@@ -27,20 +28,20 @@ use crate::{editsession::EditSession, processor::ImeState};
 
 #[implement(windows::Win32::UI::TextServices::ITfKeyEventSink)]
 pub struct KeyEventSink {
-    state: Arc<Mutex<ImeState>>,
+    state: Rc<RefCell<ImeState>>,
 }
 
 impl KeyEventSink {
-    pub fn new(state: Arc<Mutex<ImeState>>) -> Self {
+    pub fn new(state: Rc<RefCell<ImeState>>) -> Self {
         KeyEventSink { state }
     }
 }
 
-impl ITfKeyEventSink_Impl for KeyEventSink {
+impl ITfKeyEventSink_Impl for KeyEventSink_Impl {
     /// Called when input focus changes. Clear composition on focus loss.
     fn OnSetFocus(&self, fforeground: BOOL) -> Result<()> {
         if !fforeground.as_bool() {
-            self.state.lock().unwrap().engine.reset_buffer();
+            self.state.borrow_mut().engine.reset_buffer();
         }
         Ok(())
     }
@@ -60,7 +61,7 @@ impl ITfKeyEventSink_Impl for KeyEventSink {
         }
 
         // In English mode pass everything through.
-        if self.state.lock().unwrap().engine.mode == InputMode::English {
+        if self.state.borrow().engine.mode == InputMode::English {
             // Except Ctrl+Space which we use to toggle mode.
             let ctrl = unsafe { GetKeyState(VK_CONTROL.0 as i32) as u16 } & 0x8000 != 0;
             if vk == VK_SPACE.0 as u32 && ctrl {
@@ -69,7 +70,19 @@ impl ITfKeyEventSink_Impl for KeyEventSink {
             return Ok(BOOL(0));
         }
 
-        // Vietnamese mode: claim printable ASCII, space, and backspace.
+        // Vietnamese mode.
+        let ctrl = unsafe { GetKeyState(VK_CONTROL.0 as i32) as u16 } & 0x8000 != 0;
+        // Ctrl+Space toggles mode — claim it so OnKeyDown runs.
+        if vk == VK_SPACE.0 as u32 && ctrl {
+            return Ok(BOOL(1));
+        }
+        // Any other Ctrl/Alt combo is a shortcut (Ctrl+C/V/A, Alt+Tab, ...) —
+        // never intercept it, let the application handle it.
+        if ctrl_or_alt_down() {
+            return Ok(BOOL(0));
+        }
+
+        // Claim printable ASCII, space, and backspace.
         Ok(BOOL(wants_key(vk) as i32))
     }
 
@@ -94,13 +107,20 @@ impl ITfKeyEventSink_Impl for KeyEventSink {
 
         // Ctrl+Space: toggle Vi/En mode.
         if vk == VK_SPACE.0 as u32 && ctrl {
-            self.state.lock().unwrap().engine.toggle_mode();
+            self.state.borrow_mut().engine.toggle_mode();
             return Ok(BOOL(1)); // consumed
+        }
+
+        // Other Ctrl/Alt combos are shortcuts (copy/paste/select/...). Drop any
+        // in-progress composition and let the application handle the key.
+        if ctrl_or_alt_down() {
+            self.state.borrow_mut().engine.reset_buffer();
+            return Ok(BOOL(0));
         }
 
         // Convert VK code to a character for the engine.
         let output = {
-            let mut s = self.state.lock().unwrap();
+            let mut s = self.state.borrow_mut();
             if vk == VK_BACK.0 as u32 {
                 s.engine.process_backspace()
             } else if let Some(ch) = vk_to_char(vk) {
@@ -149,25 +169,20 @@ impl ITfKeyEventSink_Impl for KeyEventSink {
 /// Request a synchronous read-write edit session and perform delete+insert.
 fn submit_edit(
     pic: Option<&ITfContext>,
-    state: &std::sync::Mutex<crate::processor::ImeState>,
+    state: &RefCell<crate::processor::ImeState>,
     delete_back: usize,
     text: String,
 ) -> Result<BOOL> {
     let context = pic.ok_or(E_FAIL)?;
-    let client_id = state.lock().unwrap().client_id;
+    let client_id = state.borrow().client_id;
 
     let session: ITfEditSession =
         EditSession::new(context.clone(), delete_back, text).into();
 
-    let mut hr = S_OK;
-    unsafe {
-        context.RequestEditSession(
-            client_id,
-            &session,
-            TF_ES_SYNC | TF_ES_READWRITE,
-            &mut hr,
-        )?;
-    }
+    // windows 0.58: RequestEditSession returns the session HRESULT directly.
+    let hr = unsafe {
+        context.RequestEditSession(client_id, &session, TF_ES_SYNC | TF_ES_READWRITE)?
+    };
     hr.ok()?;
     Ok(BOOL(1)) // consumed
 }
@@ -187,6 +202,12 @@ fn wants_key(vk: u32) -> bool {
 /// True if VK is a pure modifier key (Shift, Ctrl, Alt, Win, CapsLock).
 fn is_modifier_vk(vk: u32) -> bool {
     matches!(vk, 0x10 | 0x11 | 0x12 | 0x14 | 0x5B | 0x5C)
+}
+
+/// True if Ctrl or Alt is currently held — signals a shortcut, not text input.
+fn ctrl_or_alt_down() -> bool {
+    let down = |vk: i32| (unsafe { GetKeyState(vk) } as u16) & 0x8000 != 0;
+    down(VK_CONTROL.0 as i32) || down(VK_MENU.0 as i32)
 }
 
 /// Convert a Virtual-Key code to a `char` using the current keyboard state.

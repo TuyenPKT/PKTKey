@@ -3,11 +3,12 @@
 //! Activate: register the key-event sink so we receive keyboard events.
 //! Deactivate: unregister and release resources.
 
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use pktkey_core::{Engine, InputMode, MappingConfig, Preset};
+use pktkey_core::{Engine, MappingConfig, Preset};
 use windows::{
-    core::{implement, Result},
+    core::{implement, Interface, Result},
     Win32::{
         Foundation::{BOOL, E_INVALIDARG},
         UI::TextServices::{
@@ -20,7 +21,9 @@ use crate::{keysink::KeyEventSink, OBJ_COUNT};
 
 // ── Shared engine state ─────────────────────────────────────────────────────
 
-/// All mutable IME state, shared between processor and key sink via Arc<Mutex<>>.
+/// All mutable IME state, shared between processor and key sink via Rc<RefCell<>>.
+/// Single-threaded: TSF drives an apartment-threaded (STA) IME on one UI thread,
+/// so shared-ownership + interior mutability without atomics/locks is correct.
 pub struct ImeState {
     pub engine: Engine,
     /// TSF thread manager — kept for Deactivate / UnadviseKeyEventSink.
@@ -44,19 +47,19 @@ impl ImeState {
 #[implement(windows::Win32::UI::TextServices::ITfTextInputProcessor)]
 pub struct InputProcessor {
     /// Shared with KeyEventSink.
-    state: Arc<Mutex<ImeState>>,
+    state: Rc<RefCell<ImeState>>,
     /// Keep the key-event sink COM object alive while the IME is active.
     /// The sink borrows a clone of `state`.
-    key_sink: Mutex<Option<ITfKeyEventSink>>,
+    key_sink: RefCell<Option<ITfKeyEventSink>>,
 }
 
 impl InputProcessor {
-    pub fn new(state: Arc<Mutex<ImeState>>) -> Self {
+    pub fn new(state: Rc<RefCell<ImeState>>) -> Self {
         use std::sync::atomic::Ordering;
         OBJ_COUNT.fetch_add(1, Ordering::SeqCst);
         InputProcessor {
             state,
-            key_sink: Mutex::new(None),
+            key_sink: RefCell::new(None),
         }
     }
 }
@@ -68,24 +71,24 @@ impl Drop for InputProcessor {
     }
 }
 
-impl ITfTextInputProcessor_Impl for InputProcessor {
+impl ITfTextInputProcessor_Impl for InputProcessor_Impl {
     /// Called by TSF when the IME is selected for the first time in a thread.
     fn Activate(&self, ptim: Option<&ITfThreadMgr>, tid: u32) -> Result<()> {
         let thread_mgr = ptim.ok_or_else(|| windows::core::Error::from(E_INVALIDARG))?;
 
         // Register our key-event sink with the keystroke manager.
-        let keystroke_mgr: ITfKeystrokeMgr = unsafe { thread_mgr.cast()? };
+        let keystroke_mgr: ITfKeystrokeMgr = thread_mgr.cast()?;
         let sink_obj: ITfKeyEventSink =
-            KeyEventSink::new(Arc::clone(&self.state)).into();
+            KeyEventSink::new(Rc::clone(&self.state)).into();
 
         unsafe {
             keystroke_mgr.AdviseKeyEventSink(tid, &sink_obj, BOOL::from(true))?;
         }
 
         // Persist the sink so it isn't dropped prematurely.
-        *self.key_sink.lock().unwrap() = Some(sink_obj);
+        *self.key_sink.borrow_mut() = Some(sink_obj);
 
-        let mut s = self.state.lock().unwrap();
+        let mut s = self.state.borrow_mut();
         s.thread_mgr = Some(thread_mgr.clone());
         s.client_id = tid;
 
@@ -94,7 +97,7 @@ impl ITfTextInputProcessor_Impl for InputProcessor {
 
     /// Called by TSF when the IME is deselected or the thread exits.
     fn Deactivate(&self) -> Result<()> {
-        let s = self.state.lock().unwrap();
+        let s = self.state.borrow();
         if let (Some(tm), cid) = (&s.thread_mgr, s.client_id) {
             unsafe {
                 if let Ok(km) = tm.cast::<ITfKeystrokeMgr>() {
@@ -105,10 +108,10 @@ impl ITfTextInputProcessor_Impl for InputProcessor {
         drop(s);
 
         // Release the key-event sink COM object.
-        *self.key_sink.lock().unwrap() = None;
+        *self.key_sink.borrow_mut() = None;
 
         // Reset engine state so next Activate starts fresh.
-        self.state.lock().unwrap().engine.reset_buffer();
+        self.state.borrow_mut().engine.reset_buffer();
         Ok(())
     }
 }

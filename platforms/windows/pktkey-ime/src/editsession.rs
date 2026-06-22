@@ -4,12 +4,14 @@
 //! (DoEditSession). We request a synchronous, read-write session in OnKeyDown,
 //! then perform the delete+insert here.
 
+use std::mem::ManuallyDrop;
+
 use windows::{
     core::{implement, Result},
     Win32::{
         Foundation::{BOOL, E_FAIL},
         UI::TextServices::{
-            ITfContext, ITfEditSession_Impl, TF_AE_NONE, TF_ANCHOR_END, TF_ANCHOR_START,
+            ITfContext, ITfEditSession_Impl, TF_AE_NONE, TF_ANCHOR_END,
             TF_DEFAULT_SELECTION, TF_SELECTION, TF_SELECTIONSTYLE,
         },
     },
@@ -30,7 +32,7 @@ impl EditSession {
     }
 }
 
-impl ITfEditSession_Impl for EditSession {
+impl ITfEditSession_Impl for EditSession_Impl {
     fn DoEditSession(&self, ec: u32) -> Result<()> {
         unsafe { self.do_edit(ec) }
     }
@@ -41,13 +43,15 @@ impl EditSession {
         let ctx = &self.context;
 
         // ── 1. Get the current selection (cursor position). ───────────────────
-        let mut sel = TF_SELECTION::default();
+        //   windows 0.58: GetSelection takes a &mut [TF_SELECTION] slice.
+        let mut sels = [TF_SELECTION::default()];
         let mut fetched: u32 = 0;
-        ctx.GetSelection(ec, TF_DEFAULT_SELECTION, 1, &mut sel, &mut fetched)?;
+        ctx.GetSelection(ec, TF_DEFAULT_SELECTION, &mut sels, &mut fetched)?;
         if fetched == 0 {
             return Err(E_FAIL.into());
         }
-        let range = sel.range.as_ref().ok_or(E_FAIL)?;
+        // TF_SELECTION::range is ManuallyDrop<Option<ITfRange>> in windows 0.58.
+        let range = sels[0].range.as_ref().ok_or(E_FAIL)?;
 
         // ── 2. Collapse to the cursor (start == end == caret). ────────────────
         range.Collapse(ec, TF_ANCHOR_END)?;
@@ -67,19 +71,19 @@ impl EditSession {
         //   SetText with an empty string deletes; with text it replaces.
         //   encode_utf16 is correct here — TSF uses UTF-16.
         let wide: Vec<u16> = self.text.encode_utf16().collect();
-        range.SetText(ec, 0, windows::core::PCWSTR(wide.as_ptr()), wide.len() as i32)?;
+        range.SetText(ec, 0, &wide)?;
 
         // ── 5. Move cursor to the end of the inserted text. ───────────────────
         range.Collapse(ec, TF_ANCHOR_END)?;
 
         let new_sel = TF_SELECTION {
-            range: Some(range.clone()),
+            range: ManuallyDrop::new(Some(range.clone())),
             style: TF_SELECTIONSTYLE {
                 ase: TF_AE_NONE,
                 fInterimChar: BOOL(0),
             },
         };
-        ctx.SetSelection(ec, 1, &new_sel)?;
+        ctx.SetSelection(ec, &[new_sel])?;
 
         Ok(())
     }
